@@ -1,0 +1,1227 @@
+<?php
+/**
+ * Skwirrel Sync Service.
+ *
+ * Orchestrates product sync: fetches from API, maps, upserts to WooCommerce.
+ * Supports full sync and delta sync (updated_on filter).
+ */
+
+declare(strict_types=1);
+
+if (!defined('ABSPATH')) {
+    exit;
+}
+
+class Skwirrel_WC_Sync_Service {
+
+    private const OPTION_LAST_SYNC = 'skwirrel_wc_sync_last_sync';
+    private const OPTION_LAST_SYNC_RESULT = 'skwirrel_wc_sync_last_result';
+    private const OPTION_SYNC_HISTORY = 'skwirrel_wc_sync_history';
+    private const MAX_HISTORY_ENTRIES = 20;
+
+    private Skwirrel_WC_Sync_Logger $logger;
+    private Skwirrel_WC_Sync_Product_Mapper $mapper;
+
+    public function __construct() {
+        $this->logger = new Skwirrel_WC_Sync_Logger();
+        $this->mapper = new Skwirrel_WC_Sync_Product_Mapper();
+    }
+
+    /**
+     * Run sync. Returns summary array.
+     *
+     * @param bool $delta Use delta sync (updated_on >= last sync) if possible
+     */
+    public function run_sync(bool $delta = false): array {
+        if (function_exists('set_time_limit')) {
+            @set_time_limit(0);
+        }
+
+        $client = $this->get_client();
+        if (!$client) {
+            $this->logger->error('Sync aborted: invalid configuration');
+            return ['success' => false, 'error' => 'Invalid configuration', 'created' => 0, 'updated' => 0, 'failed' => 0];
+        }
+
+        $options = $this->get_options();
+        $created = 0;
+        $updated = 0;
+        $failed = 0;
+        $delta_since = get_option(self::OPTION_LAST_SYNC, '');
+
+        $get_params = [
+            'page' => 1,
+            'limit' => (int) ($options['batch_size'] ?? 100),
+            'include_product_status' => true,
+            'include_product_translations' => true,
+            'include_attachments' => true,
+            'include_trade_items' => true,
+            'include_trade_item_prices' => true,
+            'include_categories' => !empty($options['sync_categories']),
+            // Product groups: needed for _product_groups (eTIM can be nested here)
+            'include_product_groups' => !empty($options['sync_categories']) || !empty($options['sync_grouped_products']),
+            // Grouped products: include when product is a variation (may affect eTIM structure)
+            'include_grouped_products' => !empty($options['sync_grouped_products']),
+            'include_etim' => true,
+            // Note: include_etim_features exists only for getGroupedProducts, not getProducts
+            'include_etim_translations' => true,
+            'include_languages' => $this->get_include_languages(),
+            'include_contexts' => [1],
+        ];
+
+        $this->logger->verbose('Sync started', [
+            'delta' => $delta,
+            'delta_since' => $delta_since,
+            'batch_size' => $get_params['limit'],
+            'include_etim' => true,
+        ]);
+
+        $product_to_group_map = [];
+        if (!empty($options['sync_grouped_products'])) {
+            $grouped_result = $this->sync_grouped_products_first($client, $options);
+            $product_to_group_map = $grouped_result['map'];
+            $created += $grouped_result['created'];
+            $updated += $grouped_result['updated'];
+        }
+
+        if ($delta && !empty($delta_since)) {
+            $req_options = $get_params;
+            unset($req_options['page'], $req_options['limit']);
+            $result = $client->call('getProductsByFilter', [
+                'filter' => [
+                    'updated_on' => [
+                        'datetime' => $delta_since,
+                        'operator' => '>=',
+                    ],
+                ],
+                'options' => $req_options,
+                'page' => 1,
+                'limit' => $get_params['limit'],
+            ]);
+        } else {
+            $result = $client->call('getProducts', $get_params);
+        }
+
+        if (!$result['success']) {
+            $err = $result['error'] ?? ['message' => 'Unknown error'];
+            $this->logger->error('Sync API error', $err);
+            $this->update_last_result(false, $created, $updated, $failed, $err['message'] ?? '');
+            return ['success' => false, 'error' => $err['message'] ?? 'API error', 'created' => 0, 'updated' => 0, 'failed' => 0];
+        }
+
+        $data = $result['result'] ?? [];
+        $products = $data['products'] ?? [];
+
+        $this->logger->verbose('API response received', [
+            'products_count' => count($products),
+            'page' => 1,
+        ]);
+
+        if ($delta && empty($products)) {
+            $this->logger->info('Delta sync: no products updated since last sync');
+            $this->update_last_result(true, 0, 0, 0);
+            return ['success' => true, 'created' => 0, 'updated' => 0, 'failed' => 0];
+        }
+
+        $page = 1;
+        $total_processed = 0;
+        $with_attrs = 0;
+        $without_attrs = 0;
+
+        do {
+            $this->logger->verbose('Processing batch', ['page' => $page, 'count' => count($products)]);
+
+            foreach ($products as $product) {
+                try {
+                    $product_id = $product['internal_product_code'] ?? $product['product_id'] ?? '?';
+                    $skwirrel_product_id = $product['product_id'] ?? $product['id'] ?? null;
+
+                    // Check if this is a virtual product for a variable product
+                    $virtual_info = null;
+                    if ($skwirrel_product_id !== null) {
+                        $virtual_info = $product_to_group_map['virtual:' . (int) $skwirrel_product_id] ?? null;
+                    }
+
+                    // If this product is a virtual product for a variable product, assign its images and documents
+                    if ($virtual_info && !empty($virtual_info['is_virtual_for_variable'])) {
+                        $wc_variable_id = $virtual_info['wc_variable_id'];
+                        $this->logger->info('Processing virtual product - assigning images and documents to variable product', [
+                            'virtual_product_id' => $skwirrel_product_id,
+                            'wc_variable_id' => $wc_variable_id,
+                        ]);
+
+                        // Get images from virtual product and assign to variable product
+                        $img_ids = $this->mapper->get_image_attachment_ids($product, $wc_variable_id);
+                        if (!empty($img_ids)) {
+                            $wc_product = wc_get_product($wc_variable_id);
+                            if ($wc_product) {
+                                $wc_product->set_image_id($img_ids[0]);
+                                $wc_product->set_gallery_image_ids(array_slice($img_ids, 1));
+                                $wc_product->save();
+                                $this->logger->info('Assigned images from virtual product to variable product', [
+                                    'wc_variable_id' => $wc_variable_id,
+                                    'image_count' => count($img_ids),
+                                ]);
+                            }
+                        }
+
+                        // Get documents from virtual product and assign to variable product
+                        $documents = $this->mapper->get_document_attachments($product, $wc_variable_id);
+                        if (!empty($documents)) {
+                            update_post_meta($wc_variable_id, '_skwirrel_document_attachments', $documents);
+                            $this->logger->info('Assigned documents from virtual product to variable product', [
+                                'wc_variable_id' => $wc_variable_id,
+                                'document_count' => count($documents),
+                            ]);
+                        }
+
+                        continue; // Skip creating a product for this virtual product
+                    }
+
+                    // Skip other VIRTUAL type products that aren't virtual products for variable products
+                    if (($product['product_type'] ?? '') === 'VIRTUAL') {
+                        $this->logger->verbose('Skipping virtual product (not used for variable product)', [
+                            'product_id' => $product['product_id'] ?? '?',
+                            'internal_product_code' => $product['internal_product_code'] ?? '',
+                        ]);
+                        continue;
+                    }
+                    $sku_for_lookup = (string) ($product['internal_product_code'] ?? $product['manufacturer_product_code'] ?? $this->mapper->get_sku($product));
+                    $group_info = null;
+                    if ($skwirrel_product_id !== null && $skwirrel_product_id !== '') {
+                        $group_info = $product_to_group_map[(int) $skwirrel_product_id] ?? null;
+                    }
+                    if (!$group_info && $sku_for_lookup !== '') {
+                        $group_info = $product_to_group_map['sku:' . $sku_for_lookup] ?? null;
+                    }
+                    $this->logger->verbose('Product lookup', [
+                        'product_id' => $skwirrel_product_id,
+                        'sku' => $sku_for_lookup,
+                        'in_group' => (bool) $group_info,
+                    ]);
+                    if (defined('SKWIRREL_WC_SYNC_DEBUG_ETIM') && SKWIRREL_WC_SYNC_DEBUG_ETIM && !$group_info && $skwirrel_product_id !== null) {
+                        $upload = wp_upload_dir();
+                        $dir = $upload['basedir'] ?? '';
+                        if ($dir && is_writable($dir)) {
+                            $line = sprintf("[%s] Product NOT in group: product_id=%s, sku=%s (map has %d product_ids)\n",
+                                gmdate('Y-m-d H:i:s'), $skwirrel_product_id, $sku_for_lookup, count(array_filter(array_keys($product_to_group_map), 'is_int')));
+                            file_put_contents($dir . '/skwirrel-variation-debug.log', $line, FILE_APPEND | LOCK_EX);
+                        }
+                    }
+                    $outcome = $group_info
+                        ? $this->upsert_product_as_variation(
+                            apply_filters('skwirrel_wc_sync_product_before_variation', $product, $group_info),
+                            $group_info
+                        )
+                        : $this->upsert_product($product);
+                    if ($outcome !== 'skipped') {
+                        $attrs = $this->mapper->get_attributes($product);
+                        $attr_count = count($attrs);
+                        if ($attr_count > 0) {
+                            $with_attrs++;
+                            $this->logger->verbose('Product has attributes', [
+                                'product' => $product_id,
+                                'outcome' => $outcome,
+                                'attr_count' => $attr_count,
+                                'attrs' => array_keys($attrs),
+                            ]);
+                        } else {
+                            $without_attrs++;
+                            $this->logger->verbose('Product has no attributes', [
+                                'product' => $product_id,
+                                'outcome' => $outcome,
+                                'has__etim' => isset($product['_etim']),
+                                'brand' => $product['brand_name'] ?? null,
+                                'manufacturer' => $product['manufacturer_name'] ?? null,
+                            ]);
+                        }
+                    }
+                    if ($outcome === 'created') {
+                        $created++;
+                    } elseif ($outcome === 'updated') {
+                        $updated++;
+                    } else {
+                        $failed++;
+                    }
+                } catch (Throwable $e) {
+                    $failed++;
+                    $this->logger->error('Product sync failed', [
+                        'product' => $product['internal_product_code'] ?? $product['product_id'] ?? '?',
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+
+            $total_processed += count($products);
+            if (count($products) < $get_params['limit']) {
+                break;
+            }
+
+            $page++;
+            $get_params['page'] = $page;
+            if ($delta && !empty($delta_since)) {
+                $req_options = $get_params;
+                unset($req_options['page'], $req_options['limit']);
+                $result = $client->call('getProductsByFilter', [
+                    'filter' => ['updated_on' => ['datetime' => $delta_since, 'operator' => '>=']],
+                    'options' => $req_options,
+                    'page' => $page,
+                    'limit' => $get_params['limit'],
+                ]);
+            } else {
+                $result = $client->call('getProducts', $get_params);
+            }
+            if (!$result['success']) {
+                $this->logger->error('Pagination failed', $result['error'] ?? []);
+                break;
+            }
+            $data = $result['result'] ?? [];
+            $products = $data['products'] ?? [];
+
+            $this->logger->verbose('API pagination', [
+                'page' => $page,
+                'products_in_page' => count($products),
+            ]);
+
+        } while (!empty($products));
+
+        $this->logger->verbose('Sync finished, persisting last sync timestamp');
+
+        update_option(self::OPTION_LAST_SYNC, gmdate('Y-m-d\TH:i:s\Z'));
+        $this->update_last_result(true, $created, $updated, $failed, '', $with_attrs, $without_attrs);
+
+        $this->logger->info('Sync completed', [
+            'created' => $created,
+            'updated' => $updated,
+            'failed' => $failed,
+            'with_attributes' => $with_attrs,
+            'without_attributes' => $without_attrs,
+        ]);
+
+        return [
+            'success' => true,
+            'created' => $created,
+            'updated' => $updated,
+            'failed' => $failed,
+        ];
+    }
+
+    /**
+     * Upsert single product. Returns 'created'|'updated'|'skipped'.
+     */
+    public function upsert_product(array $product): string {
+        $key = $this->mapper->get_unique_key($product);
+        if (!$key) {
+            $this->logger->warning('Product has no unique key, skipping', ['product_id' => $product['product_id'] ?? '?']);
+            return 'skipped';
+        }
+
+        $sku = $this->mapper->get_sku($product);
+        $wc_id = wc_get_product_id_by_sku($sku);
+        if ($wc_id) {
+            $existing = wc_get_product($wc_id);
+            if ($existing && $existing->is_type('variable')) {
+                $wc_id = 0;
+                $sku = 'SKW-' . ($product['product_id'] ?? uniqid());
+                $this->logger->verbose('SKU conflict with variable product, using unique SKU', [
+                    'original_sku' => $this->mapper->get_sku($product),
+                    'new_sku' => $sku,
+                ]);
+            }
+        }
+        if (!$wc_id) {
+            $wc_id = $this->find_by_external_id($key);
+        }
+
+        $is_new = !$wc_id;
+
+        $this->logger->verbose('Upsert product', [
+            'product' => $product['internal_product_code'] ?? $product['product_id'] ?? '?',
+            'sku' => $sku,
+            'key' => $key,
+            'wc_id' => $wc_id,
+            'is_new' => $is_new,
+        ]);
+
+        if ($is_new) {
+            $wc_product = new WC_Product_Simple();
+        } else {
+            $wc_product = wc_get_product($wc_id);
+            if (!$wc_product) {
+                $this->logger->warning('WC product not found', ['wc_id' => $wc_id]);
+                return 'skipped';
+            }
+        }
+
+        $wc_product->set_sku($sku);
+        $wc_product->set_name($this->mapper->get_name($product));
+        $wc_product->set_short_description($this->mapper->get_short_description($product));
+        $wc_product->set_description($this->mapper->get_long_description($product));
+        $wc_product->set_status($this->mapper->get_status($product));
+
+        $price = $this->mapper->get_regular_price($product);
+        if ($this->mapper->is_price_on_request($product)) {
+            $wc_product->set_regular_price('');
+            $wc_product->set_price('');
+            $wc_product->set_sold_individually(false);
+        } elseif ($price !== null) {
+            $wc_product->set_regular_price((string) $price);
+            $wc_product->set_price((string) $price);
+        }
+
+        $attrs = $this->mapper->get_attributes($product);
+        if (!empty($attrs)) {
+            $wc_attrs = [];
+            $position = 0;
+            foreach ($attrs as $name => $value) {
+                $attr = new WC_Product_Attribute();
+                $attr->set_id(0);
+                $attr->set_name($name);
+                $attr->set_options([(string) $value]);
+                $attr->set_position($position++);
+                $attr->set_visible(true);
+                $attr->set_variation(false);
+                $wc_attrs[ sanitize_title($name) ] = $attr;
+            }
+            $wc_product->set_attributes($wc_attrs);
+        }
+
+        $wc_product->save();
+
+        $id = $wc_product->get_id();
+        update_post_meta($id, $this->mapper->get_external_id_meta_key(), $key);
+        update_post_meta($id, $this->mapper->get_product_id_meta_key(), $product['product_id'] ?? 0);
+        update_post_meta($id, $this->mapper->get_synced_at_meta_key(), time());
+
+        $img_ids = $this->mapper->get_image_attachment_ids($product, $id);
+        if (!empty($img_ids)) {
+            $wc_product->set_image_id($img_ids[0]);           // First image = featured
+            $wc_product->set_gallery_image_ids(array_slice($img_ids, 1)); // All others = gallery
+            $wc_product->save();
+        }
+
+        $downloads = $this->mapper->get_downloadable_files($product, $id);
+        if (!empty($downloads)) {
+            $wc_product->set_downloadable(true);
+            $wc_product->set_downloads($this->format_downloads($downloads));
+            $wc_product->save();
+        }
+
+        $documents = $this->mapper->get_document_attachments($product, $id);
+        update_post_meta($id, '_skwirrel_document_attachments', $documents);
+
+        $categories = $this->mapper->get_category_names($product);
+        if (!empty($categories)) {
+            $tax = 'product_cat';
+            $term_ids = [];
+            foreach ($categories as $cat_name) {
+                $term = term_exists($cat_name, $tax);
+                if (!$term) {
+                    $term = wp_insert_term($cat_name, $tax);
+                }
+                if (!is_wp_error($term)) {
+                    $term_ids[] = $term['term_id'];
+                }
+            }
+            if (!empty($term_ids)) {
+                wp_set_object_terms($id, $term_ids, $tax);
+            }
+        }
+
+        if (!empty($attrs)) {
+            $product_attrs = [];
+            $position = 0;
+            foreach ($attrs as $name => $value) {
+                $slug = sanitize_title($name);
+                $product_attrs[ $slug ] = [
+                    'name'         => $name,
+                    'value'        => (string) $value,
+                    'position'     => (string) $position++,
+                    'is_visible'   => 1,
+                    'is_variation' => 0,
+                    'is_taxonomy'  => 0,
+                ];
+            }
+            update_post_meta($id, '_product_attributes', $product_attrs);
+            clean_post_cache($id);
+            if (function_exists('wc_delete_product_transients')) {
+                wc_delete_product_transients($id);
+            }
+            $this->logger->verbose('Attributes saved (product+meta)', [
+                'wc_id' => $id,
+                'attr_count' => count($attrs),
+                'names' => array_keys($attrs),
+            ]);
+        }
+
+        return $is_new ? 'created' : 'updated';
+    }
+
+    private const GROUPED_PRODUCT_ID_META = '_skwirrel_grouped_product_id';
+
+    /**
+     * Stap 1: Haal grouped products op, maak variable producten aan (zonder variations).
+     * Retourneert map: product_id => [grouped_product_id, order, sku, wc_variable_id].
+     */
+    private function sync_grouped_products_first(Skwirrel_WC_Sync_JsonRpc_Client $client, array $options): array {
+        $created = 0;
+        $updated = 0;
+        $product_to_group_map = [];
+        $batch_size = (int) ($options['batch_size'] ?? 100);
+        $params = [
+            'page' => 1,
+            'limit' => $batch_size,
+            'include_products' => true,
+            'include_etim_features' => true,
+        ];
+
+        $page = 1;
+        do {
+            $params['page'] = $page;
+            $params['limit'] = $batch_size;
+            $result = $client->call('getGroupedProducts', $params);
+
+            if (!$result['success']) {
+                $this->logger->warning('getGroupedProducts failed', $result['error'] ?? []);
+                break;
+            }
+
+            $data = $result['result'] ?? [];
+            $groups = $data['grouped_products'] ?? $data['groups'] ?? $data['products'] ?? [];
+            if (!is_array($groups)) {
+                $groups = [];
+            }
+
+            $page_info = $data['page'] ?? [];
+            $current_page = (int) ($page_info['current_page'] ?? $page);
+            $total_pages = (int) ($page_info['number_of_pages'] ?? 1);
+
+            foreach ($groups as $group) {
+                try {
+                    $outcome = $this->create_variable_product_from_group($group, $product_to_group_map);
+                    if ($outcome === 'created') {
+                        $created++;
+                    } elseif ($outcome === 'updated') {
+                        $updated++;
+                    }
+                } catch (Throwable $e) {
+                    $this->logger->error('Grouped product sync failed', [
+                        'grouped_product_id' => $group['grouped_product_id'] ?? $group['id'] ?? '?',
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+
+            if (empty($groups) || $current_page >= $total_pages) {
+                break;
+            }
+            $page++;
+        } while (true);
+
+        $product_ids_in_groups = array_filter(array_keys($product_to_group_map), 'is_int');
+        $this->logger->info('Grouped products loaded', [
+            'variable_products' => $created + $updated,
+            'product_ids_in_groups' => count($product_ids_in_groups),
+        ]);
+        return ['created' => $created, 'updated' => $updated, 'map' => $product_to_group_map];
+    }
+
+    /**
+     * Maak variable product aan (zonder variations). Vul product_to_group_map voor later.
+     */
+    private function create_variable_product_from_group(array $group, array &$product_to_group_map): string {
+        $grouped_id = $group['grouped_product_id'] ?? $group['id'] ?? null;
+        if ($grouped_id === null || $grouped_id === '') {
+            return 'skipped';
+        }
+
+        $products = $group['_products'] ?? $group['products'] ?? [];
+        $variant_skus = [];
+
+        foreach ($products as $item) {
+            $product_id = null;
+            $sku = null;
+            $order = 999;
+            if (is_array($item)) {
+                $product_id = isset($item['product_id']) ? (int) $item['product_id'] : null;
+                $sku = (string) ($item['internal_product_code'] ?? '');
+                $order = isset($item['order']) ? (int) $item['order'] : 999;
+            } else {
+                $product_id = (int) $item;
+                $sku = '';
+            }
+            if ($product_id && $sku !== '') {
+                $variant_skus[] = $sku;
+            }
+        }
+
+        $wc_id = $this->find_by_grouped_product_id((int) $grouped_id);
+        $is_new = !$wc_id;
+
+        if ($is_new) {
+            $wc_product = new WC_Product_Variable();
+        } else {
+            $wc_product = wc_get_product($wc_id);
+            if (!$wc_product || !$wc_product->is_type('variable')) {
+                $wc_product = new WC_Product_Variable();
+                if ($wc_id) {
+                    wp_delete_post($wc_id, true);
+                }
+                $is_new = true;
+            }
+        }
+
+        $name = (string) ($group['grouped_product_name'] ?? $group['grouped_product_code'] ?? $group['name'] ?? '');
+        if ($name === '') {
+            $name = sprintf(__('Product %s', 'skwirrel-wc-sync'), $grouped_id);
+        }
+
+        $group_sku = (string) ($group['grouped_product_code'] ?? $group['internal_product_code'] ?? '');
+        if ($group_sku !== '') {
+            $wc_product->set_sku($group_sku);
+        }
+        $wc_product->set_name($name);
+        $wc_product->set_status(!empty($group['product_trashed_on']) ? 'trash' : 'publish');
+        $wc_product->set_catalog_visibility('visible');
+        $wc_product->set_stock_status('instock'); // Parent must be in stock
+        $wc_product->set_manage_stock(false); // Don't manage stock at parent level
+
+        $etim_features = $group['_etim_features'] ?? [];
+        $etim_variation_codes = [];
+        if (is_array($etim_features)) {
+            $raw = isset($etim_features[0]) ? $etim_features : array_values($etim_features);
+            foreach ($raw as $f) {
+                if (is_array($f) && !empty($f['etim_feature_code'])) {
+                    $etim_variation_codes[] = [
+                        'code' => $f['etim_feature_code'],
+                        'order' => (int) ($f['order'] ?? 999),
+                    ];
+                }
+            }
+            usort($etim_variation_codes, fn($a, $b) => $a['order'] <=> $b['order']);
+        }
+
+        $attrs = [];
+        if (!empty($etim_variation_codes)) {
+            foreach ($etim_variation_codes as $pos => $ef) {
+                $code = $ef['code'];
+                $etim_slug = $this->get_etim_attribute_slug($code);
+                $label = $this->get_etim_code_label($code);
+                $tax = $this->ensure_product_attribute_exists($etim_slug, $label);
+                $attr = new WC_Product_Attribute();
+                $attr->set_id(wc_attribute_taxonomy_id_by_name($etim_slug));
+                $attr->set_name($tax);
+                $attr->set_options([]);
+                $attr->set_position($pos);
+                $attr->set_visible(true);
+                $attr->set_variation(true);
+                $attrs[$tax] = $attr;
+            }
+        }
+        if (empty($attrs)) {
+            $this->ensure_variant_taxonomy_exists();
+            $attr = new WC_Product_Attribute();
+            $attr->set_id(wc_attribute_taxonomy_id_by_name('variant'));
+            $attr->set_name('pa_variant');
+            $attr->set_options(array_values(array_unique($variant_skus)));
+            $attr->set_position(0);
+            $attr->set_visible(true);
+            $attr->set_variation(true);
+            $attrs['pa_variant'] = $attr;
+        }
+        $wc_product->set_attributes($attrs);
+        $wc_product->save();
+
+        $id = $wc_product->get_id();
+        update_post_meta($id, self::GROUPED_PRODUCT_ID_META, (int) $grouped_id);
+        update_post_meta($id, $this->mapper->get_synced_at_meta_key(), time());
+
+        // Store virtual_product_id if present (this product has images for the variable product)
+        $virtual_product_id = $group['virtual_product_id'] ?? null;
+        if ($virtual_product_id) {
+            update_post_meta($id, '_skwirrel_virtual_product_id', (int) $virtual_product_id);
+        }
+
+        foreach ($products as $item) {
+            $product_id = null;
+            $sku = null;
+            $order = 999;
+            if (is_array($item)) {
+                $product_id = isset($item['product_id']) ? (int) $item['product_id'] : null;
+                $sku = (string) ($item['internal_product_code'] ?? '');
+                $order = isset($item['order']) ? (int) $item['order'] : 999;
+            }
+            if ($product_id && $sku !== '') {
+                $info = [
+                    'grouped_product_id' => (int) $grouped_id,
+                    'order' => $order,
+                    'sku' => $sku,
+                    'wc_variable_id' => $id,
+                    'etim_variation_codes' => $etim_variation_codes,
+                    'virtual_product_id' => $virtual_product_id, // Include virtual product ID in map
+                ];
+                $product_to_group_map[(int) $product_id] = $info;
+                $product_to_group_map['sku:' . $sku] = $info;
+            }
+        }
+
+        // If this group has a virtual product, track it for image assignment
+        if ($virtual_product_id) {
+            $product_to_group_map['virtual:' . (int) $virtual_product_id] = [
+                'wc_variable_id' => $id,
+                'is_virtual_for_variable' => true,
+            ];
+        }
+
+        $categories = $this->mapper->get_category_names($group);
+        if (!empty($categories)) {
+            $tax = 'product_cat';
+            $term_ids = [];
+            foreach ($categories as $cat_name) {
+                $term = term_exists($cat_name, $tax);
+                if (!$term) {
+                    $term = wp_insert_term($cat_name, $tax);
+                }
+                if (!is_wp_error($term)) {
+                    $term_ids[] = $term['term_id'];
+                }
+            }
+            if (!empty($term_ids)) {
+                wp_set_object_terms($id, $term_ids, $tax);
+            }
+        }
+
+        return $is_new ? 'created' : 'updated';
+    }
+
+    /**
+     * Voeg product uit getProducts toe als variation aan variable product.
+     */
+    private function upsert_product_as_variation(array $product, array $group_info): string {
+        $wc_variable_id = $group_info['wc_variable_id'] ?? 0;
+        $sku = $group_info['sku'] ?? $this->mapper->get_sku($product);
+        if (!$wc_variable_id) {
+            return $this->upsert_product($product);
+        }
+
+        $variation_id = $this->find_variation_by_sku($wc_variable_id, $sku);
+        if (!$variation_id) {
+            $variation = new WC_Product_Variation();
+            $variation->set_parent_id($wc_variable_id);
+        } else {
+            $variation = wc_get_product($variation_id);
+            if (!$variation instanceof WC_Product_Variation) {
+                return 'skipped';
+            }
+        }
+
+        $variation->set_sku($sku);
+        $variation->set_status('publish'); // Ensure variation is enabled
+        $variation->set_catalog_visibility('visible'); // Make visible in catalog
+
+        $price = $this->mapper->get_regular_price($product);
+        if ($this->mapper->is_price_on_request($product)) {
+            $variation->set_regular_price('');
+            $variation->set_price('');
+            $variation->set_stock_status('outofstock'); // Price on request = out of stock
+        } elseif ($price !== null && $price > 0) {
+            $variation->set_regular_price((string) $price);
+            $variation->set_price((string) $price);
+            $variation->set_stock_status('instock');
+            $variation->set_manage_stock(false); // Don't manage stock, always available
+        } else {
+            // No price available - set to 0 and log warning
+            $this->logger->warning('Variation has no price, setting to 0', [
+                'sku' => $sku,
+                'product_id' => $product['product_id'] ?? '?',
+                'has_trade_items' => !empty($product['_trade_items'] ?? []),
+            ]);
+            $variation->set_regular_price('0');
+            $variation->set_price('0');
+            $variation->set_stock_status('instock');
+            $variation->set_manage_stock(false);
+        }
+
+        $variation_attrs = [];
+        $etim_codes = $group_info['etim_variation_codes'] ?? [];
+        $etim_values = [];
+        if (!empty($etim_codes)) {
+            $lang = $this->get_include_languages();
+            $lang = !empty($lang) ? $lang[0] : (get_option('skwirrel_wc_sync_settings', [])['image_language'] ?? 'nl');
+            $etim_values = $this->mapper->get_etim_feature_values_for_codes($product, $etim_codes, $lang);
+            $this->logger->verbose('Variation eTIM lookup', [
+                'sku' => $sku,
+                'etim_codes' => array_column($etim_codes, 'code'),
+                'etim_values_found' => array_keys($etim_values),
+                'has_product_etim' => isset($product['_etim']),
+                'has_product_groups' => !empty($product['_product_groups'] ?? []),
+            ]);
+            foreach ($etim_codes as $ef) {
+                $code = strtoupper((string) ($ef['code'] ?? ''));
+                $data = $etim_values[$code] ?? null;
+                if (!$data) {
+                    continue;
+                }
+                $slug = $this->get_etim_attribute_slug($code);
+                $tax = wc_attribute_taxonomy_name($slug);
+                if (!taxonomy_exists($tax)) {
+                    $label = !empty($data['label']) ? $data['label'] : $this->get_etim_code_label($code);
+                    $this->ensure_product_attribute_exists($slug, $label);
+                }
+                $term = get_term_by('slug', $data['slug'], $tax) ?: get_term_by('name', $data['value'], $tax);
+                if (!$term || is_wp_error($term)) {
+                    $insert = wp_insert_term($data['value'], $tax, ['slug' => $data['slug']]);
+                    $term = !is_wp_error($insert) ? get_term($insert['term_id'], $tax) : null;
+                }
+                if ($term && !is_wp_error($term)) {
+                    $variation_attrs[$tax] = $term->slug;
+                    // Add term to parent IMMEDIATELY so parent knows about it before variation uses it
+                    $this->add_term_to_parent_attribute($wc_variable_id, $tax, $term->term_id);
+                }
+            }
+        }
+        if (empty($variation_attrs)) {
+            // Fallback to pa_variant only when parent uses pa_variant (no eTIM attributes)
+            $parent_uses_etim = !empty($etim_codes);
+            if ($parent_uses_etim) {
+                $this->logger->warning('Variation has no eTIM values; parent expects eTIM attributes', [
+                    'sku' => $sku,
+                    'wc_variable_id' => $wc_variable_id,
+                    'etim_codes' => array_column($etim_codes ?? [], 'code'),
+                ]);
+                if (defined('SKWIRREL_WC_SYNC_DEBUG_ETIM') && SKWIRREL_WC_SYNC_DEBUG_ETIM) {
+                    $dump = wp_upload_dir();
+                    $file = ($dump['basedir'] ?? '') . '/skwirrel-etim-debug-' . $sku . '.json';
+                    if ($file && is_writable(dirname($file))) {
+                        file_put_contents($file, wp_json_encode([
+                            'sku' => $sku,
+                            'product_keys' => array_keys($product),
+                            '_etim' => $product['_etim'] ?? null,
+                            '_etim_features' => $product['_etim_features'] ?? null,
+                            '_product_groups' => array_map(function ($g) {
+                                return array_intersect_key($g, array_flip(['product_group_name', '_etim', '_etim_features']));
+                            }, $product['_product_groups'] ?? []),
+                        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+                    }
+                }
+            }
+            $term = get_term_by('name', $sku, 'pa_variant') ?: get_term_by('slug', sanitize_title($sku), 'pa_variant');
+            if (!$term) {
+                $insert = wp_insert_term($sku, 'pa_variant');
+                $term = !is_wp_error($insert) ? get_term($insert['term_id'], 'pa_variant') : null;
+            }
+            if ($term && !is_wp_error($term)) {
+                $variation_attrs['pa_variant'] = $term->slug;
+            }
+        }
+        if (defined('SKWIRREL_WC_SYNC_DEBUG_ETIM') && SKWIRREL_WC_SYNC_DEBUG_ETIM) {
+            $this->write_variation_debug($sku, $etim_codes ?? [], $etim_values ?? [], $product, $variation_attrs);
+        }
+
+        // Set variation attributes BEFORE saving
+        if (!empty($variation_attrs)) {
+            $variation->set_attributes($variation_attrs);
+        }
+
+        $img_ids = $this->mapper->get_image_attachment_ids($product, $wc_variable_id);
+        if (!empty($img_ids)) {
+            $variation->set_image_id($img_ids[0]);
+        }
+
+        $variation->update_meta_data($this->mapper->get_product_id_meta_key(), $product['product_id'] ?? 0);
+        $variation->update_meta_data($this->mapper->get_external_id_meta_key(), $this->mapper->get_unique_key($product) ?? '');
+
+        // Save variation first to get ID
+        $variation->save();
+        $vid = $variation->get_id();
+
+        // Explicitly persist variation attributes in post meta
+        // WooCommerce variations use ONLY post meta (not term relationships)
+        if ($vid && !empty($variation_attrs)) {
+            foreach ($variation_attrs as $tax => $term_slug) {
+                // Update post meta with the term slug
+                update_post_meta($vid, 'attribute_' . $tax, wp_slash($term_slug));
+            }
+
+            // Log what we're saving
+            $this->logger->verbose('Variation attributes saved to meta', [
+                'sku' => $sku,
+                'vid' => $vid,
+                'attributes' => $variation_attrs,
+            ]);
+
+            // Verify immediately
+            $verified = [];
+            foreach ($variation_attrs as $tax => $expected) {
+                $verified[$tax] = get_post_meta($vid, 'attribute_' . $tax, true);
+            }
+
+            if ($verified !== $variation_attrs) {
+                $this->logger->error('Variation attribute meta verification failed', [
+                    'sku' => $sku,
+                    'vid' => $vid,
+                    'expected' => $variation_attrs,
+                    'verified' => $verified,
+                ]);
+            } else {
+                $this->logger->verbose('Variation attribute meta verification SUCCESS', [
+                    'sku' => $sku,
+                    'vid' => $vid,
+                    'verified' => $verified,
+                ]);
+            }
+
+            clean_post_cache($vid);
+            if (function_exists('wc_delete_product_transients')) {
+                wc_delete_product_transients($vid);
+            }
+        }
+
+        // Sync parent product to update available variations
+        $wc_product = wc_get_product($wc_variable_id);
+        if ($wc_product && $wc_product->is_type('variable')) {
+            try {
+                WC_Product_Variable::sync($wc_variable_id);
+                WC_Product_Variable::sync_stock_status($wc_variable_id);
+                clean_post_cache($wc_variable_id);
+                if (function_exists('wc_delete_product_transients')) {
+                    wc_delete_product_transients($wc_variable_id);
+                }
+            } catch (Throwable $e) {
+                $this->logger->warning('Parent sync failed, continuing', [
+                    'wc_variable_id' => $wc_variable_id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        do_action('skwirrel_wc_sync_after_variation_save', $variation->get_id(), $variation_attrs, $product);
+
+        return $variation_id ? 'updated' : 'created';
+    }
+
+    private function ensure_variant_taxonomy_exists(): void {
+        if (taxonomy_exists('pa_variant')) {
+            return;
+        }
+        if (!wc_attribute_taxonomy_id_by_name('variant')) {
+            global $wpdb;
+            $wpdb->insert(
+                $wpdb->prefix . 'woocommerce_attribute_taxonomies',
+                [
+                    'attribute_name' => 'variant',
+                    'attribute_label' => __('Variant', 'skwirrel-wc-sync'),
+                    'attribute_type' => 'select',
+                    'attribute_orderby' => 'menu_order',
+                    'attribute_public' => 1,
+                ]
+            );
+            delete_transient('wc_attribute_taxonomies');
+        }
+        register_taxonomy('pa_variant', 'product', [
+            'labels' => ['name' => __('Variant', 'skwirrel-wc-sync')],
+            'hierarchical' => false,
+            'show_ui' => true,
+            'query_var' => true,
+            'rewrite' => ['slug' => 'pa_variant'],
+        ]);
+    }
+
+    private function get_etim_attribute_slug(string $code): string {
+        $map = [
+            'EF002671' => 'color',
+            'EF008078' => 'cups',
+        ];
+        $slug = $map[strtoupper($code)] ?? 'etim_' . strtolower($code);
+        return strlen($slug) > 28 ? substr($slug, 0, 28) : $slug;
+    }
+
+    private function get_etim_code_label(string $code): string {
+        $map = [
+            'EF002671' => __('Colour', 'skwirrel-wc-sync'),
+            'EF008078' => __('Number of cups', 'skwirrel-wc-sync'),
+        ];
+        return $map[strtoupper($code)] ?? $code;
+    }
+
+    private function ensure_product_attribute_exists(string $slug, string $label): string {
+        $tax = wc_attribute_taxonomy_name($slug);
+        if (taxonomy_exists($tax)) {
+            return $tax;
+        }
+        if (!wc_attribute_taxonomy_id_by_name($slug)) {
+            if (function_exists('wc_create_attribute')) {
+                $result = wc_create_attribute([
+                    'name' => $label ?: $slug,
+                    'slug' => $slug,
+                    'type' => 'select',
+                    'order_by' => 'menu_order',
+                    'has_archives' => false,
+                ]);
+                if (is_wp_error($result)) {
+                    return $tax;
+                }
+            } else {
+                global $wpdb;
+                $wpdb->insert(
+                    $wpdb->prefix . 'woocommerce_attribute_taxonomies',
+                    [
+                        'attribute_name' => $slug,
+                        'attribute_label' => $label ?: $slug,
+                        'attribute_type' => 'select',
+                        'attribute_orderby' => 'menu_order',
+                        'attribute_public' => 1,
+                    ]
+                );
+                delete_transient('wc_attribute_taxonomies');
+                if (function_exists('WC_Cache_Helper') && method_exists('WC_Cache_Helper', 'invalidate_cache_group')) {
+                    WC_Cache_Helper::invalidate_cache_group('woocommerce-attributes');
+                }
+            }
+        }
+        $this->register_etim_taxonomy($tax, $slug, $label ?: $slug);
+        return $tax;
+    }
+
+    private function register_etim_taxonomy(string $taxonomy, string $slug, string $label): void {
+        if (taxonomy_exists($taxonomy)) {
+            return;
+        }
+        $permalinks = function_exists('wc_get_permalink_structure') ? wc_get_permalink_structure() : [];
+        $attr_rewrite = $permalinks['attribute_rewrite_slug'] ?? 'attribute';
+        $taxonomy_data = [
+            'hierarchical' => false,
+            'update_count_callback' => '_update_post_term_count',
+            'labels' => [
+                'name' => $label,
+                'singular_name' => $label,
+                'search_items' => sprintf(__('Search %s', 'skwirrel-wc-sync'), $label),
+                'all_items' => sprintf(__('All %s', 'skwirrel-wc-sync'), $label),
+                'edit_item' => sprintf(__('Edit %s', 'skwirrel-wc-sync'), $label),
+                'update_item' => sprintf(__('Update %s', 'skwirrel-wc-sync'), $label),
+                'add_new_item' => sprintf(__('Add new %s', 'skwirrel-wc-sync'), $label),
+                'new_item_name' => sprintf(__('New %s', 'skwirrel-wc-sync'), $label),
+            ],
+            'show_ui' => true,
+            'show_in_quick_edit' => false,
+            'show_in_menu' => false,
+            'meta_box_cb' => false,
+            'query_var' => true,
+            'rewrite' => $attr_rewrite && $slug
+                ? ['slug' => trailingslashit($attr_rewrite) . urldecode(sanitize_title($slug)), 'with_front' => false, 'hierarchical' => true]
+                : false,
+            'sort' => false,
+            'public' => true,
+            'capabilities' => [
+                'manage_terms' => 'manage_product_terms',
+                'edit_terms' => 'edit_product_terms',
+                'delete_terms' => 'delete_product_terms',
+                'assign_terms' => 'assign_product_terms',
+            ],
+        ];
+        register_taxonomy($taxonomy, ['product'], $taxonomy_data);
+        global $wc_product_attributes;
+        if (!is_array($wc_product_attributes)) {
+            $wc_product_attributes = [];
+        }
+        $wc_product_attributes[$taxonomy] = (object) [
+            'attribute_id' => wc_attribute_taxonomy_id_by_name($slug),
+            'attribute_name' => $slug,
+            'attribute_label' => $label,
+            'attribute_type' => 'select',
+            'attribute_orderby' => 'menu_order',
+            'attribute_public' => 1,
+        ];
+    }
+
+    private function write_variation_debug(string $sku, array $etim_codes, array $etim_values, array $product, array $variation_attrs): void {
+        $upload = wp_upload_dir();
+        $dir = $upload['basedir'] ?? '';
+        if (!$dir || !is_writable($dir)) {
+            return;
+        }
+        $file = $dir . '/skwirrel-variation-debug.log';
+        $line = sprintf(
+            "[%s] SKU=%s | etim_codes=%s | etim_values_found=%s | has__etim=%s | variation_attrs=%s\n",
+            gmdate('Y-m-d H:i:s'),
+            $sku,
+            json_encode(array_column($etim_codes, 'code')),
+            json_encode(array_keys($etim_values)),
+            isset($product['_etim']) ? 'yes' : 'no',
+            json_encode($variation_attrs)
+        );
+        file_put_contents($file, $line, FILE_APPEND | LOCK_EX);
+    }
+
+    private function find_variation_by_sku(int $parent_id, string $sku): int {
+        global $wpdb;
+        $id = $wpdb->get_var($wpdb->prepare(
+            "SELECT p.ID FROM {$wpdb->posts} p
+            INNER JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id AND pm.meta_key = '_sku'
+            WHERE p.post_parent = %d AND pm.meta_value = %s AND p.post_type = 'product_variation'",
+            $parent_id,
+            $sku
+        ));
+        return $id ? (int) $id : 0;
+    }
+
+    private function add_term_to_parent_attribute(int $parent_id, string $taxonomy, int $term_id): void {
+        $wc_product = wc_get_product($parent_id);
+        if (!$wc_product || !$wc_product->is_type('variable')) {
+            return;
+        }
+        $attrs = $wc_product->get_attributes();
+        if (empty($attrs) || !isset($attrs[$taxonomy])) {
+            return;
+        }
+        $attr = $attrs[$taxonomy];
+        if (!$attr->is_taxonomy()) {
+            return;
+        }
+        $options = $attr->get_options();
+        $options = is_array($options) ? $options : [];
+        if (in_array($term_id, array_map('intval', $options), true)) {
+            return;
+        }
+        $options[] = $term_id;
+        $attr->set_options($options);
+        $attrs[$taxonomy] = $attr;
+        $wc_product->set_attributes($attrs);
+
+        // Explicitly set term relationship on parent product
+        // This ensures the parent post is linked to all attribute terms
+        wp_set_object_terms($parent_id, $options, $taxonomy, false);
+
+        $wc_product->save();
+    }
+
+    private function find_by_grouped_product_id(int $grouped_product_id): int {
+        global $wpdb;
+        $id = $wpdb->get_var($wpdb->prepare(
+            "SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key = %s AND meta_value = %s LIMIT 1",
+            self::GROUPED_PRODUCT_ID_META,
+            (string) $grouped_product_id
+        ));
+        return $id ? (int) $id : 0;
+    }
+
+    private function find_by_skwirrel_product_id(int $product_id): int {
+        global $wpdb;
+        $meta_key = $this->mapper->get_product_id_meta_key();
+        $id = $wpdb->get_var($wpdb->prepare(
+            "SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key = %s AND meta_value = %s LIMIT 1",
+            $meta_key,
+            (string) $product_id
+        ));
+        return $id ? (int) $id : 0;
+    }
+
+    private function get_client(): ?Skwirrel_WC_Sync_JsonRpc_Client {
+        $opts = $this->get_options();
+        $url = $opts['endpoint_url'] ?? '';
+        $auth = $opts['auth_type'] ?? 'bearer';
+        $token = Skwirrel_WC_Sync_Admin_Settings::get_auth_token();
+        if (empty($url) || empty($token)) {
+            return null;
+        }
+        return new Skwirrel_WC_Sync_JsonRpc_Client(
+            $url,
+            $auth,
+            $token,
+            (int) ($opts['timeout'] ?? 30),
+            (int) ($opts['retries'] ?? 2)
+        );
+    }
+
+    private function get_options(): array {
+        $defaults = [
+            'endpoint_url' => '',
+            'auth_type' => 'bearer',
+            'auth_token' => '',
+            'timeout' => 30,
+            'retries' => 2,
+            'batch_size' => 100,
+            'sync_categories' => true,
+            'sync_grouped_products' => false,
+            'sync_images' => true,
+            'image_language' => 'nl',
+            'include_languages' => ['nl-NL', 'nl'],
+            'verbose_logging' => false,
+        ];
+        $saved = get_option('skwirrel_wc_sync_settings', []);
+        return array_merge($defaults, is_array($saved) ? $saved : []);
+    }
+
+    private function get_include_languages(): array {
+        $opts = get_option('skwirrel_wc_sync_settings', []);
+        $langs = $opts['include_languages'] ?? ['nl-NL', 'nl'];
+        if (!empty($langs) && is_array($langs)) {
+            return array_values(array_filter(array_map('sanitize_text_field', $langs)));
+        }
+        return ['nl-NL', 'nl'];
+    }
+
+    private function find_by_external_id(string $key): int {
+        global $wpdb;
+        $meta_key = $this->mapper->get_external_id_meta_key();
+        $id = $wpdb->get_var($wpdb->prepare(
+            "SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key = %s AND meta_value = %s LIMIT 1",
+            $meta_key,
+            $key
+        ));
+        return $id ? (int) $id : 0;
+    }
+
+    private function format_downloads(array $files): array {
+        $downloads = [];
+        foreach ($files as $i => $f) {
+            $downloads[(string) $i] = [
+                'name' => $f['name'],
+                'file' => $f['file'],
+            ];
+        }
+        return $downloads;
+    }
+
+    private function update_last_result(bool $ok, int $created, int $updated, int $failed, string $error = '', int $with_attrs = 0, int $without_attrs = 0): void {
+        $result = [
+            'success' => $ok,
+            'created' => $created,
+            'updated' => $updated,
+            'failed' => $failed,
+            'error' => $error,
+            'with_attributes' => $with_attrs,
+            'without_attributes' => $without_attrs,
+            'timestamp' => time(),
+        ];
+
+        update_option(self::OPTION_LAST_SYNC_RESULT, $result, false);
+
+        // Add to history
+        $history = get_option(self::OPTION_SYNC_HISTORY, []);
+        if (!is_array($history)) {
+            $history = [];
+        }
+
+        // Prepend newest entry at the beginning
+        array_unshift($history, $result);
+
+        // Keep only the latest MAX_HISTORY_ENTRIES
+        $history = array_slice($history, 0, self::MAX_HISTORY_ENTRIES);
+
+        update_option(self::OPTION_SYNC_HISTORY, $history, false);
+    }
+
+    public static function get_last_sync(): ?string {
+        return get_option(self::OPTION_LAST_SYNC, null);
+    }
+
+    public static function get_last_result(): ?array {
+        return get_option(self::OPTION_LAST_SYNC_RESULT, null);
+    }
+
+    public static function get_sync_history(): array {
+        $history = get_option(self::OPTION_SYNC_HISTORY, []);
+        return is_array($history) ? $history : [];
+    }
+}

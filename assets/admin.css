@@ -1,0 +1,7 @@
+/* Skwirrel WooCommerce Sync - Admin styles */
+.skwirrel-sync-wrap .form-table th {
+    width: 200px;
+}
+.skwirrel-sync-wrap .widefat.striped th {
+    width: 200px;
+}
