@@ -85,6 +85,14 @@ class Skwirrel_WC_Sync_Service {
             'collection_ids' => $collection_ids ?: '(all)',
         ]);
 
+        /**
+         * Action: sync gaat starten — gebruik dit om state te initialiseren.
+         *
+         * @param bool  $delta       True als delta sync.
+         * @param array $options     Plugin opties.
+         */
+        do_action('skwirrel_wc_sync_started', $delta, $options);
+
         $product_to_group_map = [];
         if (!empty($options['sync_grouped_products'])) {
             $grouped_result = $this->sync_grouped_products_first($client, $options);
@@ -326,12 +334,22 @@ class Skwirrel_WC_Sync_Service {
             'without_attributes' => $without_attrs,
         ]);
 
-        return [
+        $summary = [
             'success' => true,
             'created' => $created,
             'updated' => $updated,
             'failed' => $failed,
         ];
+
+        /**
+         * Action: de gehele sync is voltooid.
+         *
+         * @param array $summary  Samenvatting met created/updated/failed counts.
+         * @param bool  $delta    True als delta sync was gebruikt.
+         */
+        do_action('skwirrel_wc_sync_completed', $summary, $delta);
+
+        return $summary;
     }
 
     /**
@@ -414,6 +432,15 @@ class Skwirrel_WC_Sync_Service {
             $wc_product->set_attributes($wc_attrs);
         }
 
+        /**
+         * Filter: pas het WC_Product object aan vlak vóór de eerste save.
+         *
+         * @param WC_Product $wc_product  Het WooCommerce product object.
+         * @param array      $product     Ruwe Skwirrel productdata.
+         * @param bool       $is_new      True als het product nieuw is.
+         */
+        $wc_product = apply_filters('skwirrel_wc_sync_before_product_save', $wc_product, $product, $is_new);
+
         $wc_product->save();
 
         $id = $wc_product->get_id();
@@ -465,6 +492,16 @@ class Skwirrel_WC_Sync_Service {
                 'names' => array_keys($attrs),
             ]);
         }
+
+        /**
+         * Action: product is volledig gesynchroniseerd (simpel product).
+         *
+         * @param int    $id       WooCommerce product ID.
+         * @param array  $product  Ruwe Skwirrel productdata.
+         * @param bool   $is_new   True als het product nieuw is aangemaakt.
+         * @param array  $attrs    Gemapte attributen (name => value).
+         */
+        do_action('skwirrel_wc_sync_after_product_save', $id, $product, $is_new, $attrs);
 
         return $is_new ? 'created' : 'updated';
     }
@@ -692,6 +729,15 @@ class Skwirrel_WC_Sync_Service {
         }
 
         $this->assign_categories($id, $group);
+
+        /**
+         * Action: variable product (uit grouped products) is opgeslagen.
+         *
+         * @param int   $id     WooCommerce variable product ID.
+         * @param array $group  Ruwe Skwirrel grouped product data.
+         * @param bool  $is_new True als het variable product nieuw is.
+         */
+        do_action('skwirrel_wc_sync_after_variable_product_save', $id, $group, $is_new);
 
         return $is_new ? 'created' : 'updated';
     }
