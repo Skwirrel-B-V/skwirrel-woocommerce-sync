@@ -49,6 +49,8 @@ class Skwirrel_WC_Sync_Service {
         $failed = 0;
         $delta_since = get_option(self::OPTION_LAST_SYNC, '');
 
+        $collection_ids = $this->get_collection_ids();
+
         $get_params = [
             'page' => 1,
             'limit' => (int) ($options['batch_size'] ?? 100),
@@ -69,11 +71,18 @@ class Skwirrel_WC_Sync_Service {
             'include_contexts' => [1],
         ];
 
+        // Collection ID filter: only sync products from these collections (empty = all)
+        // Note: exact API parameter name may need adjustment — logged for debugging
+        if (!empty($collection_ids)) {
+            $get_params['collection_ids'] = $collection_ids;
+        }
+
         $this->logger->verbose('Sync started', [
             'delta' => $delta,
             'delta_since' => $delta_since,
             'batch_size' => $get_params['limit'],
             'include_etim' => true,
+            'collection_ids' => $collection_ids ?: '(all)',
         ]);
 
         $product_to_group_map = [];
@@ -127,9 +136,28 @@ class Skwirrel_WC_Sync_Service {
         $total_processed = 0;
         $with_attrs = 0;
         $without_attrs = 0;
+        $logged_first_product = false;
 
         do {
             $this->logger->verbose('Processing batch', ['page' => $page, 'count' => count($products)]);
+
+            // Log first product's raw structure once per sync for diagnostics
+            if (!$logged_first_product && !empty($products[0])) {
+                $first = $products[0];
+                $this->logger->info('First product structure sample', [
+                    'product_id' => $first['product_id'] ?? '?',
+                    'has__categories' => isset($first['_categories']),
+                    '_categories_count' => is_array($first['_categories'] ?? null) ? count($first['_categories']) : 0,
+                    '_categories_sample' => is_array($first['_categories'] ?? null) ? array_slice($first['_categories'], 0, 2) : null,
+                    'has__product_groups' => isset($first['_product_groups']),
+                    '_product_groups_count' => is_array($first['_product_groups'] ?? null) ? count($first['_product_groups']) : 0,
+                    '_product_groups_names' => is_array($first['_product_groups'] ?? null)
+                        ? array_column($first['_product_groups'], 'product_group_name')
+                        : null,
+                    'top_level_keys' => array_keys($first),
+                ]);
+                $logged_first_product = true;
+            }
 
             foreach ($products as $product) {
                 try {
@@ -410,23 +438,7 @@ class Skwirrel_WC_Sync_Service {
         $documents = $this->mapper->get_document_attachments($product, $id);
         update_post_meta($id, '_skwirrel_document_attachments', $documents);
 
-        $categories = $this->mapper->get_category_names($product);
-        if (!empty($categories)) {
-            $tax = 'product_cat';
-            $term_ids = [];
-            foreach ($categories as $cat_name) {
-                $term = term_exists($cat_name, $tax);
-                if (!$term) {
-                    $term = wp_insert_term($cat_name, $tax);
-                }
-                if (!is_wp_error($term)) {
-                    $term_ids[] = $term['term_id'];
-                }
-            }
-            if (!empty($term_ids)) {
-                wp_set_object_terms($id, $term_ids, $tax);
-            }
-        }
+        $this->assign_categories($id, $product);
 
         if (!empty($attrs)) {
             $product_attrs = [];
@@ -474,6 +486,12 @@ class Skwirrel_WC_Sync_Service {
             'include_products' => true,
             'include_etim_features' => true,
         ];
+
+        // Pass collection_ids filter to grouped products API call
+        $collection_ids = $this->get_collection_ids();
+        if (!empty($collection_ids)) {
+            $params['collection_ids'] = $collection_ids;
+        }
 
         $page = 1;
         do {
@@ -673,23 +691,7 @@ class Skwirrel_WC_Sync_Service {
             ];
         }
 
-        $categories = $this->mapper->get_category_names($group);
-        if (!empty($categories)) {
-            $tax = 'product_cat';
-            $term_ids = [];
-            foreach ($categories as $cat_name) {
-                $term = term_exists($cat_name, $tax);
-                if (!$term) {
-                    $term = wp_insert_term($cat_name, $tax);
-                }
-                if (!is_wp_error($term)) {
-                    $term_ids[] = $term['term_id'];
-                }
-            }
-            if (!empty($term_ids)) {
-                wp_set_object_terms($id, $term_ids, $tax);
-            }
-        }
+        $this->assign_categories($id, $group);
 
         return $is_new ? 'created' : 'updated';
     }
@@ -898,6 +900,151 @@ class Skwirrel_WC_Sync_Service {
         do_action('skwirrel_wc_sync_after_variation_save', $variation->get_id(), $variation_attrs, $product);
 
         return $variation_id ? 'updated' : 'created';
+    }
+
+    /**
+     * Assign product categories to a WooCommerce product.
+     * Matches by Skwirrel category ID first (term meta), then by name.
+     * Supports parent/child hierarchy from _categories data.
+     */
+    private function assign_categories(int $wc_product_id, array $product): void {
+        $categories = $this->mapper->get_categories($product);
+        if (empty($categories)) {
+            return;
+        }
+
+        $tax = 'product_cat';
+        $term_ids = [];
+        $cat_id_meta = Skwirrel_WC_Sync_Product_Mapper::CATEGORY_ID_META;
+
+        foreach ($categories as $cat) {
+            $cat_id = $cat['id'] ?? null;
+            $cat_name = $cat['name'];
+            $parent_id = $cat['parent_id'] ?? null;
+            $parent_name = $cat['parent_name'] ?? '';
+            $wc_parent_term_id = 0;
+
+            // Resolve parent term first (if any)
+            if ($parent_name !== '' || $parent_id !== null) {
+                $wc_parent_term_id = $this->find_or_create_category_term(
+                    $parent_id,
+                    $parent_name,
+                    $tax,
+                    $cat_id_meta,
+                    0
+                );
+            }
+
+            // Resolve the category itself
+            $wc_term_id = $this->find_or_create_category_term(
+                $cat_id,
+                $cat_name,
+                $tax,
+                $cat_id_meta,
+                $wc_parent_term_id
+            );
+
+            if ($wc_term_id) {
+                $term_ids[] = $wc_term_id;
+                // Include parent too
+                if ($wc_parent_term_id) {
+                    $term_ids[] = $wc_parent_term_id;
+                }
+            }
+        }
+
+        $term_ids = array_unique(array_map('intval', $term_ids));
+        if (!empty($term_ids)) {
+            wp_set_object_terms($wc_product_id, $term_ids, $tax);
+            $this->logger->verbose('Categories assigned', [
+                'wc_product_id' => $wc_product_id,
+                'term_ids' => $term_ids,
+                'names' => array_column($categories, 'name'),
+            ]);
+        }
+    }
+
+    /**
+     * Find existing term by Skwirrel category ID (term meta) or name, or create new.
+     * Returns WC term_id or 0 on failure.
+     */
+    private function find_or_create_category_term(
+        ?int $skwirrel_id,
+        string $name,
+        string $taxonomy,
+        string $meta_key,
+        int $parent_term_id
+    ): int {
+        if ($name === '' && $skwirrel_id === null) {
+            return 0;
+        }
+
+        // 1. Match by Skwirrel category ID in term meta (reliable)
+        if ($skwirrel_id !== null) {
+            global $wpdb;
+            $existing_term_id = $wpdb->get_var($wpdb->prepare(
+                "SELECT tm.term_id FROM {$wpdb->termmeta} tm
+                 INNER JOIN {$wpdb->term_taxonomy} tt ON tm.term_id = tt.term_id AND tt.taxonomy = %s
+                 WHERE tm.meta_key = %s AND tm.meta_value = %s
+                 LIMIT 1",
+                $taxonomy,
+                $meta_key,
+                (string) $skwirrel_id
+            ));
+            if ($existing_term_id) {
+                return (int) $existing_term_id;
+            }
+        }
+
+        // 2. Fall back to name matching
+        if ($name !== '') {
+            $term = term_exists($name, $taxonomy, $parent_term_id ?: 0);
+            if ($term && !is_wp_error($term)) {
+                $term_id = is_array($term) ? (int) $term['term_id'] : (int) $term;
+                // Store Skwirrel ID for next sync
+                if ($skwirrel_id !== null) {
+                    update_term_meta($term_id, $meta_key, (string) $skwirrel_id);
+                }
+                return $term_id;
+            }
+        }
+
+        // 3. Create new term
+        if ($name === '') {
+            return 0;
+        }
+        $args = [];
+        if ($parent_term_id) {
+            $args['parent'] = $parent_term_id;
+        }
+        $inserted = wp_insert_term($name, $taxonomy, $args);
+        if (is_wp_error($inserted)) {
+            // Handle "term already exists" race condition
+            if ($inserted->get_error_code() === 'term_exists') {
+                $term_id = (int) $inserted->get_error_data('term_exists');
+                if ($skwirrel_id !== null && $term_id) {
+                    update_term_meta($term_id, $meta_key, (string) $skwirrel_id);
+                }
+                return $term_id;
+            }
+            $this->logger->warning('Failed to create category term', [
+                'name' => $name,
+                'error' => $inserted->get_error_message(),
+            ]);
+            return 0;
+        }
+
+        $term_id = (int) $inserted['term_id'];
+        if ($skwirrel_id !== null) {
+            update_term_meta($term_id, $meta_key, (string) $skwirrel_id);
+        }
+        $this->logger->verbose('Category term created', [
+            'term_id' => $term_id,
+            'name' => $name,
+            'skwirrel_id' => $skwirrel_id,
+            'parent' => $parent_term_id,
+        ]);
+        return $term_id;
     }
 
     private function ensure_variant_taxonomy_exists(): void {
@@ -1150,6 +1297,19 @@ class Skwirrel_WC_Sync_Service {
         ];
         $saved = get_option('skwirrel_wc_sync_settings', []);
         return array_merge($defaults, is_array($saved) ? $saved : []);
+    }
+
+    /**
+     * Get collection IDs from settings. Returns array of int IDs, or empty array for "sync all".
+     */
+    private function get_collection_ids(): array {
+        $opts = get_option('skwirrel_wc_sync_settings', []);
+        $raw = $opts['collection_ids'] ?? '';
+        if ($raw === '' || !is_string($raw)) {
+            return [];
+        }
+        $parts = preg_split('/[\s,]+/', $raw, -1, PREG_SPLIT_NO_EMPTY);
+        return array_values(array_map('intval', array_filter($parts, 'is_numeric')));
     }
 
     private function get_include_languages(): array {

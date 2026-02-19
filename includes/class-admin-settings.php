@@ -16,6 +16,17 @@ class Skwirrel_WC_Sync_Admin_Settings {
     private const TOKEN_OPTION_KEY = 'skwirrel_wc_sync_auth_token';
     private const MASK = '••••••••';
 
+    private const LANGUAGE_OPTIONS = [
+        'nl'    => 'Nederlands (nl)',
+        'nl-NL' => 'Nederlands – Nederland (nl-NL)',
+        'en'    => 'English (en)',
+        'en-GB' => 'English – GB (en-GB)',
+        'de'    => 'Deutsch (de)',
+        'de-DE' => 'Deutsch – Deutschland (de-DE)',
+        'fr'    => 'Français (fr)',
+        'fr-FR' => 'Français – France (fr-FR)',
+    ];
+
     private static ?self $instance = null;
 
     public static function instance(): self {
@@ -79,11 +90,39 @@ class Skwirrel_WC_Sync_Admin_Settings {
         $out['sync_categories'] = !empty($input['sync_categories']);
         $out['sync_grouped_products'] = !empty($input['sync_grouped_products']);
         $out['sync_images'] = ($input['sync_images'] ?? 'yes') === 'yes';
-        $out['image_language'] = sanitize_text_field($input['image_language'] ?? 'nl');
-        $inc = $input['include_languages'] ?? '';
-        $parsed = array_values(array_filter(array_map('trim', preg_split('/[\s,]+/', is_string($inc) ? $inc : '', -1, PREG_SPLIT_NO_EMPTY))));
-        $out['include_languages'] = !empty($parsed) ? $parsed : ['nl-NL', 'nl'];
+        // Image language: dropdown or custom
+        $lang_select = $input['image_language_select'] ?? '';
+        $lang_custom = sanitize_text_field($input['image_language_custom'] ?? '');
+        if ($lang_select === '_custom' && $lang_custom !== '') {
+            $out['image_language'] = $lang_custom;
+        } elseif ($lang_select !== '' && $lang_select !== '_custom') {
+            $out['image_language'] = sanitize_text_field($lang_select);
+        } else {
+            // Backward compatibility: accept old direct field
+            $out['image_language'] = sanitize_text_field($input['image_language'] ?? 'nl');
+        }
+        // Include languages: merge checkboxes + custom input
+        $checked = $input['include_languages_checkboxes'] ?? [];
+        if (!is_array($checked)) {
+            $checked = [];
+        }
+        $checked = array_map('sanitize_text_field', $checked);
+        $custom_raw = $input['include_languages_custom'] ?? '';
+        $custom_parts = array_values(array_filter(array_map('trim', preg_split('/[\s,]+/', is_string($custom_raw) ? $custom_raw : '', -1, PREG_SPLIT_NO_EMPTY))));
+        $custom_parts = array_map('sanitize_text_field', $custom_parts);
+        $merged = array_values(array_unique(array_merge($checked, $custom_parts)));
+        if (empty($merged)) {
+            // Backward compatibility: accept old direct field
+            $inc = $input['include_languages'] ?? '';
+            $parsed = array_values(array_filter(array_map('trim', preg_split('/[\s,]+/', is_string($inc) ? $inc : '', -1, PREG_SPLIT_NO_EMPTY))));
+            $merged = !empty($parsed) ? $parsed : ['nl-NL', 'nl'];
+        }
+        $out['include_languages'] = $merged;
         $out['use_sku_field'] = sanitize_text_field($input['use_sku_field'] ?? 'internal_product_code');
+        // Collection IDs: comma-separated, keep only numeric values
+        $raw_collections = $input['collection_ids'] ?? '';
+        $collection_parts = preg_split('/[\s,]+/', is_string($raw_collections) ? $raw_collections : '', -1, PREG_SPLIT_NO_EMPTY);
+        $out['collection_ids'] = implode(', ', array_filter(array_map('trim', $collection_parts), 'is_numeric'));
         $out['verbose_logging'] = !empty($input['verbose_logging']);
         return $out;
     }
@@ -273,6 +312,13 @@ class Skwirrel_WC_Sync_Admin_Settings {
                         </td>
                     </tr>
                     <tr>
+                        <th scope="row"><label for="collection_ids"><?php esc_html_e('Collectie ID\'s (filter)', 'skwirrel-wc-sync'); ?></label></th>
+                        <td>
+                            <input type="text" id="collection_ids" name="<?php echo esc_attr(self::OPTION_KEY); ?>[collection_ids]" value="<?php echo esc_attr($opts['collection_ids'] ?? ''); ?>" class="regular-text" placeholder="<?php esc_attr_e('bijv. 123, 456', 'skwirrel-wc-sync'); ?>" />
+                            <p class="description"><?php esc_html_e('Comma-separated collectie ID\'s. Alleen producten uit deze collecties worden gesynchroniseerd. Leeg = alles synchroniseren.', 'skwirrel-wc-sync'); ?></p>
+                        </td>
+                    </tr>
+                    <tr>
                         <th scope="row"><label for="sync_images"><?php esc_html_e('Afbeeldingen importeren', 'skwirrel-wc-sync'); ?></label></th>
                         <td>
                             <select id="sync_images" name="<?php echo esc_attr(self::OPTION_KEY); ?>[sync_images]">
@@ -283,17 +329,47 @@ class Skwirrel_WC_Sync_Admin_Settings {
                         </td>
                     </tr>
                     <tr>
-                        <th scope="row"><label for="image_language"><?php esc_html_e('Contenttaal', 'skwirrel-wc-sync'); ?></label></th>
+                        <th scope="row"><label for="image_language_select"><?php esc_html_e('Contenttaal', 'skwirrel-wc-sync'); ?></label></th>
                         <td>
-                            <input type="text" id="image_language" name="<?php echo esc_attr(self::OPTION_KEY); ?>[image_language]" value="<?php echo esc_attr($opts['image_language'] ?? 'nl'); ?>" size="6" pattern="[a-z]{2}(-[A-Z]{2})?" placeholder="nl" />
-                            <p class="description"><?php esc_html_e('Taalcode voor alle teksten: afbeelding alt/caption, ETIM-attributen. Bijv. nl, nl-NL, en.', 'skwirrel-wc-sync'); ?></p>
+                            <?php
+                            $current_lang = $opts['image_language'] ?? 'nl';
+                            $is_custom = !isset(self::LANGUAGE_OPTIONS[$current_lang]);
+                            ?>
+                            <select id="image_language_select" name="<?php echo esc_attr(self::OPTION_KEY); ?>[image_language_select]" onchange="var c=document.getElementById('image_language_custom_wrap');c.style.display=this.value==='_custom'?'inline-block':'none';if(this.value!=='_custom')document.getElementById('image_language_custom').value='';">
+                                <?php foreach (self::LANGUAGE_OPTIONS as $code => $label) : ?>
+                                    <option value="<?php echo esc_attr($code); ?>" <?php selected($current_lang, $code); ?>><?php echo esc_html($label); ?></option>
+                                <?php endforeach; ?>
+                                <option value="_custom" <?php selected($is_custom); ?>><?php esc_html_e('Anders…', 'skwirrel-wc-sync'); ?></option>
+                            </select>
+                            <span id="image_language_custom_wrap" style="display:<?php echo $is_custom ? 'inline-block' : 'none'; ?>;">
+                                <input type="text" id="image_language_custom" name="<?php echo esc_attr(self::OPTION_KEY); ?>[image_language_custom]" value="<?php echo esc_attr($is_custom ? $current_lang : ''); ?>" size="6" pattern="[a-z]{2}(-[A-Z]{2})?" placeholder="bijv. es-ES" />
+                            </span>
+                            <p class="description"><?php esc_html_e('Taalcode voor alle teksten: afbeelding alt/caption, ETIM-attributen.', 'skwirrel-wc-sync'); ?></p>
                         </td>
                     </tr>
                     <tr>
-                        <th scope="row"><label for="include_languages"><?php esc_html_e('API-talen (include_languages)', 'skwirrel-wc-sync'); ?></label></th>
+                        <th scope="row"><?php esc_html_e('API-talen (include_languages)', 'skwirrel-wc-sync'); ?></th>
                         <td>
-                            <input type="text" id="include_languages" name="<?php echo esc_attr(self::OPTION_KEY); ?>[include_languages]" value="<?php echo esc_attr(implode(', ', !empty($opts['include_languages']) ? $opts['include_languages'] : ['nl-NL', 'nl'])); ?>" class="regular-text" placeholder="nl-NL, nl" />
-                            <p class="description"><?php esc_html_e('Talen voor API (product translations, ETIM). Comma-separated, bijv. nl-NL, nl', 'skwirrel-wc-sync'); ?></p>
+                            <?php
+                            $saved_langs = !empty($opts['include_languages']) && is_array($opts['include_languages'])
+                                ? $opts['include_languages']
+                                : ['nl-NL', 'nl'];
+                            $known_codes = array_keys(self::LANGUAGE_OPTIONS);
+                            $custom_langs = array_diff($saved_langs, $known_codes);
+                            ?>
+                            <fieldset>
+                                <?php foreach (self::LANGUAGE_OPTIONS as $code => $label) : ?>
+                                    <label style="display:block;margin-bottom:4px;">
+                                        <input type="checkbox" name="<?php echo esc_attr(self::OPTION_KEY); ?>[include_languages_checkboxes][]" value="<?php echo esc_attr($code); ?>" <?php checked(in_array($code, $saved_langs, true)); ?> />
+                                        <?php echo esc_html($label); ?>
+                                    </label>
+                                <?php endforeach; ?>
+                            </fieldset>
+                            <p style="margin-top:8px;">
+                                <label for="include_languages_custom"><?php esc_html_e('Extra taalcodes (comma-separated):', 'skwirrel-wc-sync'); ?></label><br />
+                                <input type="text" id="include_languages_custom" name="<?php echo esc_attr(self::OPTION_KEY); ?>[include_languages_custom]" value="<?php echo esc_attr(implode(', ', $custom_langs)); ?>" class="regular-text" placeholder="bijv. es, pt-BR" />
+                            </p>
+                            <p class="description"><?php esc_html_e('Selecteer de talen die de API moet meesturen voor product translations en ETIM.', 'skwirrel-wc-sync'); ?></p>
                         </td>
                     </tr>
                     <tr>
