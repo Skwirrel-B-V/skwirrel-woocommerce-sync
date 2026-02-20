@@ -1,11 +1,11 @@
 # Skwirrel WooCommerce Sync
 
-WordPress-plugin die producten synchroniseert van de Skwirrel JSON-RPC API naar WooCommerce.
+**Versie 1.1.1** — WordPress-plugin die producten synchroniseert van de Skwirrel JSON-RPC API naar WooCommerce.
 
 ## Vereisten
 
 - WordPress 6.x
-- WooCommerce 8+
+- WooCommerce 8+ (getest t/m 10.5)
 - PHP 8.1+
 
 ## Installatie
@@ -28,6 +28,10 @@ WordPress-plugin die producten synchroniseert van de Skwirrel JSON-RPC API naar 
 | **Categorieën syncen** | Productcategorieën uit Skwirrel aanmaken en koppelen |
 | **Afbeeldingen importeren** | Ja (naar media library) of Nee (overslaan). Kies "Nee" als upload faalt door een security plugin. |
 | **SKU veld** | `internal_product_code` of `manufacturer_product_code` |
+| **Collectie-IDs** | Comma-separated collectie-IDs om alleen specifieke collecties te synchroniseren. Leeg = alles. |
+| **Verwijderde producten opruimen** | Na een volledige sync: producten die niet meer in Skwirrel staan naar de prullenbak verplaatsen. Standaard **uit**. |
+| **Verwijderwaarschuwing tonen** | Toon een waarschuwingsbanner bij het verwijderen van Skwirrel-beheerde items in WooCommerce. Standaard **aan**. |
+| **Talen** | Welke taalcodes meegestuurd worden in de API-call + voorkeurstaal voor afbeeldingstitels. |
 
 ## Hoe sync werkt
 
@@ -35,6 +39,17 @@ WordPress-plugin die producten synchroniseert van de Skwirrel JSON-RPC API naar 
 2. **Automatisch**: Stel een sync interval in; de plugin gebruikt WP-Cron of Action Scheduler (indien beschikbaar).
 3. **Upsert-logica**: Bestaande producten (op basis van SKU of external ID) worden bijgewerkt; nieuwe producten worden aangemaakt.
 4. **Delta sync**: Bij geplande sync wordt alleen gefilterd op producten die na de laatste sync zijn gewijzigd (`updated_on >= last_sync`).
+5. **Purge**: Na een volledige sync (indien ingeschakeld) worden producten en categorieën die niet meer in Skwirrel voorkomen automatisch naar de prullenbak verplaatst.
+
+## Verwijderbescherming
+
+Skwirrel is leidend: producten die via Skwirrel worden beheerd worden bij de volgende sync opnieuw aangemaakt als ze in WooCommerce zijn verwijderd.
+
+- **Waarschuwingsbanner**: op de product-bewerkpagina wordt een gele banner getoond met de tekst dat het product door Skwirrel wordt beheerd.
+- **Bevestigingsdialoog**: bij het verwijderen van een Skwirrel-product of -categorie in de lijst verschijnt een JavaScript-bevestiging.
+- **Automatische volledige sync**: wanneer een Skwirrel-item in WooCommerce wordt verwijderd, wordt de eerstvolgende geplande sync automatisch een volledige sync.
+
+De waarschuwing is uit te schakelen via de instelling "Verwijderwaarschuwing tonen".
 
 ## Gemapte velden
 
@@ -50,7 +65,7 @@ WordPress-plugin die producten synchroniseert van de Skwirrel JSON-RPC API naar 
 | `_attachments` (type IMG) | Featured image + galerij |
 | `_attachments` (type MAN, DAT, etc.) | Downloadbare bestanden |
 | `brand_name`, `manufacturer_name` | Productattributen |
-| `_product_groups[].product_group_name` | Productcategorieën |
+| `_categories[]` / `_product_groups[]` | Productcategorieën (met parent-child hiërarchie) |
 
 ## Troubleshooting
 
@@ -78,6 +93,47 @@ WordPress-plugin die producten synchroniseert van de Skwirrel JSON-RPC API naar 
 
 De plugin gebruikt de WooCommerce logger (`wc_get_logger`). Logs zijn te vinden in:
 - **WooCommerce** → **Status** → **Logs** → bron: `skwirrel-wc-sync`
+
+## Vertalingen
+
+De plugin bevat vertalingen voor de volgende talen:
+
+| Taal | Bestand |
+|------|---------|
+| Nederlands (Nederland) | `nl_NL` |
+| Nederlands (België) | `nl_BE` |
+| English (US) | `en_US` |
+| English (GB) | `en_GB` |
+| Deutsch | `de_DE` |
+| Français (France) | `fr_FR` |
+| Français (Belgique) | `fr_BE` |
+
+## Ontwikkeling
+
+### Vereisten
+
+```bash
+composer install
+```
+
+### Tests draaien
+
+```bash
+vendor/bin/phpunit
+```
+
+### Static analysis
+
+```bash
+vendor/bin/phpstan analyse
+```
+
+### Code style
+
+```bash
+vendor/bin/phpcs        # controleren
+vendor/bin/phpcbf       # automatisch fixen
+```
 
 ## Minimale testflow
 
