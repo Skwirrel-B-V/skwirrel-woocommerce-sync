@@ -21,8 +21,9 @@ phpstan.neon
 .phpcs.xml
 phpunit.xml
 
-# PHPUnit cache
+# PHPUnit/Pest cache
 .phpunit.cache/
+.pest/
 
 # Node (if ever added)
 node_modules/

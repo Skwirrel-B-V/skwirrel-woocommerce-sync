@@ -88,8 +88,8 @@ Alle noemenswaardige wijzigingen aan dit project worden in dit bestand gedocumen
 - `.editorconfig` — consistente code-opmaak (tabs, LF, utf-8)
 - `phpstan.neon.dist` — PHPStan level 6 met WP/WC stubs
 - `.phpcs.xml.dist` — WordPress-Extra code style met text-domain check
-- `phpunit.xml.dist` + `tests/` — PHPUnit 10 met Unit tests voor ProductMapper
-- `composer.json` — dev dependencies (phpunit, phpstan, phpcs, stubs), scripts
+- `phpunit.xml.dist` + `tests/` — Pest PHP met Unit tests voor ProductMapper
+- `composer.json` — dev dependencies (pest, phpstan, phpcs, stubs), scripts
 - `.claude/rules/` — progressive disclosure documentatie (sync-service, product-mapping, admin-settings, testing)
 - `.claude/settings.json` — tool permissions
 - `.claude/commands/` — workflow automatisering (sync-debug, add-setting, add-translation)

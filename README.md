@@ -119,7 +119,7 @@ composer install
 ### Tests draaien
 
 ```bash
-vendor/bin/phpunit
+vendor/bin/pest
 ```
 
 ### Static analysis

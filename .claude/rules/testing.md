@@ -7,27 +7,52 @@
 composer install
 
 # Run all tests
-vendor/bin/phpunit
+vendor/bin/pest
 
 # Run specific test file
-vendor/bin/phpunit tests/Unit/ProductMapperCategoryTest.php
+vendor/bin/pest tests/Unit/ProductMapperCategoryTest.php
 
 # Run with coverage (requires Xdebug or PCOV)
-vendor/bin/phpunit --coverage-text
+vendor/bin/pest --coverage
 ```
 
 ## Test Structure
 
 - `tests/Unit/` — Unit tests (no WP/WC dependency, fast)
-- `phpunit.xml.dist` — PHPUnit 10 configuration
+- `tests/Pest.php` — Pest configuration (base test case binding)
+- `phpunit.xml.dist` — PHPUnit/Pest configuration (Pest uses PHPUnit's config)
 - `tests/bootstrap.php` — Minimal bootstrap with WP/WC stubs
 
 ## Writing Tests
 
-- Test classes extend `PHPUnit\Framework\TestCase`
+- Use Pest's `test()` function syntax (not class-based PHPUnit)
+- Use `beforeEach()` for shared setup
+- Use `expect()` API for assertions (not `$this->assert*()`)
 - File naming: `{ClassName}Test.php` (e.g., `ProductMapperCategoryTest.php`)
-- Method naming: `test_descriptive_name()` (snake_case)
-- Use data providers for multiple input variations
+- Test naming: `test('descriptive name', function () { ... })`
+- Use `dataset()` / `with()` for multiple input variations
+
+### Example
+
+```php
+beforeEach(function () {
+    $this->mapper = new Skwirrel_WC_Sync_Product_Mapper();
+});
+
+test('get_categories extracts from _categories array', function () {
+    $product = [
+        'product_id' => 1,
+        '_categories' => [
+            ['category_id' => 10, 'category_name' => 'Schroeven'],
+        ],
+    ];
+
+    $result = $this->mapper->get_categories($product);
+
+    expect($result)->toHaveCount(1);
+    expect($result[0]['name'])->toBe('Schroeven');
+});
+```
 
 ## What to Test
 

@@ -2,169 +2,159 @@
 
 declare(strict_types=1);
 
-use PHPUnit\Framework\TestCase;
+// ------------------------------------------------------------------
+// get_categories()
+// ------------------------------------------------------------------
 
-/**
- * Tests for Skwirrel_WC_Sync_Product_Mapper category-related methods.
- */
-class ProductMapperCategoryTest extends TestCase {
+beforeEach(function () {
+	$this->mapper = new Skwirrel_WC_Sync_Product_Mapper();
+});
 
-	private Skwirrel_WC_Sync_Product_Mapper $mapper;
+test('get_categories extracts from _categories array', function () {
+	$product = [
+		'product_id' => 1,
+		'_categories' => [
+			[
+				'category_id' => 10,
+				'category_name' => 'Bevestigingsmaterialen',
+			],
+			[
+				'category_id' => 20,
+				'category_name' => 'Schroeven',
+				'parent_category_id' => 10,
+				'parent_category_name' => 'Bevestigingsmaterialen',
+			],
+		],
+	];
 
-	protected function setUp(): void {
-		$this->mapper = new Skwirrel_WC_Sync_Product_Mapper();
-	}
+	$result = $this->mapper->get_categories($product);
 
-	// ------------------------------------------------------------------
-	// get_categories()
-	// ------------------------------------------------------------------
+	expect($result)->toHaveCount(2);
+	expect($result[0]['id'])->toBe(10);
+	expect($result[0]['name'])->toBe('Bevestigingsmaterialen');
+	expect($result[0]['parent_id'])->toBeNull();
+	expect($result[1]['id'])->toBe(20);
+	expect($result[1]['name'])->toBe('Schroeven');
+	expect($result[1]['parent_id'])->toBe(10);
+	expect($result[1]['parent_name'])->toBe('Bevestigingsmaterialen');
+});
 
-	public function test_get_categories_from_categories_array(): void {
-		$product = [
-			'product_id' => 1,
-			'_categories' => [
-				[
-					'category_id' => 10,
-					'category_name' => 'Bevestigingsmaterialen',
-				],
-				[
+test('get_categories falls back to product groups', function () {
+	$product = [
+		'product_id' => 2,
+		'_categories' => [],
+		'_product_groups' => [
+			['product_group_name' => 'Gereedschap', 'product_group_id' => 5],
+			['product_group_name' => 'Handgereedschap', 'product_group_id' => 6],
+		],
+	];
+
+	$result = $this->mapper->get_categories($product);
+
+	expect($result)->toHaveCount(2);
+	expect($result[0]['id'])->toBe(5);
+	expect($result[0]['name'])->toBe('Gereedschap');
+	expect($result[0]['parent_id'])->toBeNull();
+});
+
+test('get_categories deduplicates by name (case insensitive)', function () {
+	$product = [
+		'product_id' => 3,
+		'_categories' => [
+			['category_id' => 10, 'category_name' => 'Schroeven'],
+			['category_id' => 20, 'category_name' => 'schroeven'],
+		],
+	];
+
+	$result = $this->mapper->get_categories($product);
+
+	expect($result)->toHaveCount(1);
+	expect($result[0]['id'])->toBe(10); // first occurrence wins
+});
+
+test('get_categories skips empty names', function () {
+	$product = [
+		'product_id' => 4,
+		'_categories' => [
+			['category_id' => 10, 'category_name' => ''],
+			['category_id' => 20, 'category_name' => 'Moeren'],
+		],
+	];
+
+	$result = $this->mapper->get_categories($product);
+
+	expect($result)->toHaveCount(1);
+	expect($result[0]['name'])->toBe('Moeren');
+});
+
+test('get_categories returns empty when no data', function () {
+	$product = ['product_id' => 5];
+
+	$result = $this->mapper->get_categories($product);
+
+	expect($result)->toBe([]);
+});
+
+test('get_categories handles alternative id keys', function () {
+	$product = [
+		'product_id' => 6,
+		'_categories' => [
+			['product_category_id' => 99, 'product_category_name' => 'Elektronica'],
+		],
+	];
+
+	$result = $this->mapper->get_categories($product);
+
+	expect($result)->toHaveCount(1);
+	expect($result[0]['id'])->toBe(99);
+	expect($result[0]['name'])->toBe('Elektronica');
+});
+
+test('get_categories resolves parent from nested object', function () {
+	$product = [
+		'product_id' => 7,
+		'_categories' => [
+			[
+				'category_id' => 30,
+				'category_name' => 'LED Lampen',
+				'parent_category_id' => 20,
+				'_parent_category' => [
 					'category_id' => 20,
-					'category_name' => 'Schroeven',
-					'parent_category_id' => 10,
-					'parent_category_name' => 'Bevestigingsmaterialen',
+					'category_name' => 'Verlichting',
 				],
 			],
-		];
+		],
+	];
 
-		$result = $this->mapper->get_categories($product);
+	$result = $this->mapper->get_categories($product);
 
-		$this->assertCount(2, $result);
-		$this->assertSame(10, $result[0]['id']);
-		$this->assertSame('Bevestigingsmaterialen', $result[0]['name']);
-		$this->assertNull($result[0]['parent_id']);
-		$this->assertSame(20, $result[1]['id']);
-		$this->assertSame('Schroeven', $result[1]['name']);
-		$this->assertSame(10, $result[1]['parent_id']);
-		$this->assertSame('Bevestigingsmaterialen', $result[1]['parent_name']);
-	}
+	expect($result)->toHaveCount(1);
+	expect($result[0]['parent_id'])->toBe(20);
+	expect($result[0]['parent_name'])->toBe('Verlichting');
+});
 
-	public function test_get_categories_falls_back_to_product_groups(): void {
-		$product = [
-			'product_id' => 2,
-			'_categories' => [],
-			'_product_groups' => [
-				['product_group_name' => 'Gereedschap', 'product_group_id' => 5],
-				['product_group_name' => 'Handgereedschap', 'product_group_id' => 6],
-			],
-		];
+// ------------------------------------------------------------------
+// get_category_names()
+// ------------------------------------------------------------------
 
-		$result = $this->mapper->get_categories($product);
+test('get_category_names returns unique names', function () {
+	$product = [
+		'product_id' => 8,
+		'_categories' => [
+			['category_id' => 10, 'category_name' => 'Schroeven'],
+			['category_id' => 20, 'category_name' => 'Bouten'],
+		],
+	];
 
-		$this->assertCount(2, $result);
-		$this->assertSame(5, $result[0]['id']);
-		$this->assertSame('Gereedschap', $result[0]['name']);
-		$this->assertNull($result[0]['parent_id']);
-	}
+	$names = $this->mapper->get_category_names($product);
 
-	public function test_get_categories_deduplicates_by_name(): void {
-		$product = [
-			'product_id' => 3,
-			'_categories' => [
-				['category_id' => 10, 'category_name' => 'Schroeven'],
-				['category_id' => 20, 'category_name' => 'schroeven'], // duplicate (case insensitive)
-			],
-		];
+	expect($names)->toBe(['Schroeven', 'Bouten']);
+});
 
-		$result = $this->mapper->get_categories($product);
+// ------------------------------------------------------------------
+// CATEGORY_ID_META constant
+// ------------------------------------------------------------------
 
-		$this->assertCount(1, $result);
-		$this->assertSame(10, $result[0]['id']); // first occurrence wins
-	}
-
-	public function test_get_categories_skips_empty_names(): void {
-		$product = [
-			'product_id' => 4,
-			'_categories' => [
-				['category_id' => 10, 'category_name' => ''],
-				['category_id' => 20, 'category_name' => 'Moeren'],
-			],
-		];
-
-		$result = $this->mapper->get_categories($product);
-
-		$this->assertCount(1, $result);
-		$this->assertSame('Moeren', $result[0]['name']);
-	}
-
-	public function test_get_categories_returns_empty_when_no_data(): void {
-		$product = ['product_id' => 5];
-
-		$result = $this->mapper->get_categories($product);
-
-		$this->assertSame([], $result);
-	}
-
-	public function test_get_categories_handles_alternative_id_keys(): void {
-		$product = [
-			'product_id' => 6,
-			'_categories' => [
-				['product_category_id' => 99, 'product_category_name' => 'Elektronica'],
-			],
-		];
-
-		$result = $this->mapper->get_categories($product);
-
-		$this->assertCount(1, $result);
-		$this->assertSame(99, $result[0]['id']);
-		$this->assertSame('Elektronica', $result[0]['name']);
-	}
-
-	public function test_get_categories_resolves_parent_from_nested_object(): void {
-		$product = [
-			'product_id' => 7,
-			'_categories' => [
-				[
-					'category_id' => 30,
-					'category_name' => 'LED Lampen',
-					'parent_category_id' => 20,
-					'_parent_category' => [
-						'category_id' => 20,
-						'category_name' => 'Verlichting',
-					],
-				],
-			],
-		];
-
-		$result = $this->mapper->get_categories($product);
-
-		$this->assertCount(1, $result);
-		$this->assertSame(20, $result[0]['parent_id']);
-		$this->assertSame('Verlichting', $result[0]['parent_name']);
-	}
-
-	// ------------------------------------------------------------------
-	// get_category_names()
-	// ------------------------------------------------------------------
-
-	public function test_get_category_names_returns_unique_names(): void {
-		$product = [
-			'product_id' => 8,
-			'_categories' => [
-				['category_id' => 10, 'category_name' => 'Schroeven'],
-				['category_id' => 20, 'category_name' => 'Bouten'],
-			],
-		];
-
-		$names = $this->mapper->get_category_names($product);
-
-		$this->assertSame(['Schroeven', 'Bouten'], $names);
-	}
-
-	// ------------------------------------------------------------------
-	// CATEGORY_ID_META constant
-	// ------------------------------------------------------------------
-
-	public function test_category_id_meta_constant_is_accessible(): void {
-		$this->assertSame('_skwirrel_category_id', Skwirrel_WC_Sync_Product_Mapper::CATEGORY_ID_META);
-	}
-}
+test('CATEGORY_ID_META constant is accessible', function () {
+	expect(Skwirrel_WC_Sync_Product_Mapper::CATEGORY_ID_META)->toBe('_skwirrel_category_id');
+});

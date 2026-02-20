@@ -1,6 +1,6 @@
 <?php
 /**
- * PHPUnit bootstrap — standalone (no WP test suite required).
+ * Pest bootstrap — standalone (no WP test suite required).
  *
  * Defines minimal WP/WC stubs so plugin classes can be instantiated
  * without a running WordPress installation.

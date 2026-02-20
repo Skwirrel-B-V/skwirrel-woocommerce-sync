@@ -131,4 +131,4 @@ Authentication: Bearer token or `X-Skwirrel-Api-Token` header.
 - See `ASSUMPTIONS.md` for design decisions where the Skwirrel API docs were ambiguous
 - Static analysis: `vendor/bin/phpstan analyse` (config in `phpstan.neon.dist`)
 - Code style: `vendor/bin/phpcs` (config in `.phpcs.xml.dist`)
-- Tests: `vendor/bin/phpunit` (config in `phpunit.xml.dist`)
+- Tests: `vendor/bin/pest` (Pest PHP, config in `phpunit.xml.dist`)
