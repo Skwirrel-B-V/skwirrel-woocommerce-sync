@@ -4,10 +4,16 @@ Elke stap = 1 commit. Volgorde is belangrijk (sommige stappen bouwen voort op ee
 
 ---
 
-## Commit 1: Versie-bump naar 1.1.1
+## Commit 1: Versie-bump naar 1.1.1 + WooCommerce 10.5 compatibiliteit
 
 **Bestanden:**
-- `skwirrel-woocommerce-sync.php` — Plugin header `Version: 1.1.1` + constant `SKWIRREL_WC_SYNC_VERSION`
+- `skwirrel-woocommerce-sync.php`:
+  - Plugin header `Version: 1.1.1`
+  - Constant `SKWIRREL_WC_SYNC_VERSION` → `'1.1.1'`
+  - `WC tested up to: 8.5` → `WC tested up to: 10.5`
+  - HPOS `declare_compatibility('custom_order_tables', __FILE__, false)` → `true` (plugin raakt geen orders)
+- `composer.json`:
+  - `"php-stubs/woocommerce-stubs": "^8.0"` → `"^10.0"`
 
 ---
 
