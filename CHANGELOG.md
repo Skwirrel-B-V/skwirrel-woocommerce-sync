@@ -1,6 +1,6 @@
 # Changelog — Skwirrel WooCommerce Sync
 
-Alle wijzigingen in deze branch (`feature/updates`) ten opzichte van `main`.
+Alle wijzigingen in `feature\update` (1.1.0) ten opzichte van `main` (1.0.0).
 
 ---
 
