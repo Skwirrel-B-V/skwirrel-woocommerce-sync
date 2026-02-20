@@ -324,10 +324,18 @@ class Skwirrel_WC_Sync_Service {
         // Purge stale products/categories (only during full sync without collection filter)
         $trashed = 0;
         $categories_removed = 0;
-        if (!$delta && empty($collection_ids) && !empty($options['purge_stale_products'])) {
-            $trashed = $this->purge_stale_products($sync_started_at);
-            if (!empty($options['sync_categories'])) {
-                $categories_removed = $this->purge_stale_categories();
+        if (!empty($options['purge_stale_products'])) {
+            if ($delta) {
+                $this->logger->verbose('Purge overgeslagen: delta sync (alleen bij volledige sync)');
+            } elseif (!empty($collection_ids)) {
+                $this->logger->warning('Purge overgeslagen: collectie-filter actief. Verwijder het collectie-filter of voer een volledige sync uit zonder filter om verwijderde producten op te ruimen.', [
+                    'collection_ids' => $collection_ids,
+                ]);
+            } else {
+                $trashed = $this->purge_stale_products($sync_started_at);
+                if (!empty($options['sync_categories'])) {
+                    $categories_removed = $this->purge_stale_categories();
+                }
             }
         }
 
@@ -1380,6 +1388,7 @@ class Skwirrel_WC_Sync_Service {
         $synced_at_meta = $this->mapper->get_synced_at_meta_key();
 
         // Vind producten met _skwirrel_external_id die NIET bijgewerkt zijn tijdens deze sync
+        // Veiligheidscheck: meta_value moet numeriek zijn (voorkom corrupt data → onterecht trashen)
         $stale_ids = $wpdb->get_col($wpdb->prepare(
             "SELECT DISTINCT pm_ext.post_id
              FROM {$wpdb->postmeta} pm_ext
@@ -1390,7 +1399,10 @@ class Skwirrel_WC_Sync_Service {
                  AND pm_sync.meta_key = %s
              WHERE pm_ext.meta_key = %s
                  AND pm_ext.meta_value != ''
-                 AND (pm_sync.meta_value IS NULL OR CAST(pm_sync.meta_value AS UNSIGNED) < %d)",
+                 AND (
+                     pm_sync.meta_value IS NULL
+                     OR (pm_sync.meta_value REGEXP '^[0-9]+$' AND CAST(pm_sync.meta_value AS UNSIGNED) < %d)
+                 )",
             $synced_at_meta,
             $external_id_meta,
             $sync_started_at
@@ -1407,7 +1419,10 @@ class Skwirrel_WC_Sync_Service {
                  AND pm_sync.meta_key = %s
              WHERE pm_grp.meta_key = %s
                  AND pm_grp.meta_value != ''
-                 AND (pm_sync.meta_value IS NULL OR CAST(pm_sync.meta_value AS UNSIGNED) < %d)",
+                 AND (
+                     pm_sync.meta_value IS NULL
+                     OR (pm_sync.meta_value REGEXP '^[0-9]+$' AND CAST(pm_sync.meta_value AS UNSIGNED) < %d)
+                 )",
             $synced_at_meta,
             self::GROUPED_PRODUCT_ID_META,
             $sync_started_at
@@ -1418,10 +1433,23 @@ class Skwirrel_WC_Sync_Service {
             array_map('intval', $stale_variable_ids)
         ));
 
+        if (empty($all_stale)) {
+            $this->logger->verbose('Geen verwijderde producten gevonden');
+            return 0;
+        }
+
+        // Pre-purge samenvatting loggen
+        $this->logger->info('Verwijderde producten gedetecteerd', [
+            'count' => count($all_stale),
+            'product_ids' => array_slice($all_stale, 0, 20),
+            'sync_started_at' => gmdate('Y-m-d H:i:s', $sync_started_at),
+        ]);
+
         $trashed = 0;
         foreach ($all_stale as $post_id) {
             $product = wc_get_product($post_id);
             if (!$product) {
+                $this->logger->verbose('Stale product niet gevonden, overgeslagen', ['wc_id' => $post_id]);
                 continue;
             }
 
@@ -1460,15 +1488,17 @@ class Skwirrel_WC_Sync_Service {
     /**
      * Verwijder categorieën die niet meer in Skwirrel voorkomen.
      * Alleen categorieën met _skwirrel_category_id meta worden verwijderd.
+     * Categorieën met nog gekoppelde producten worden overgeslagen (veiligheid).
      */
     private function purge_stale_categories(): int {
         global $wpdb;
         $cat_meta_key = Skwirrel_WC_Sync_Product_Mapper::CATEGORY_ID_META;
 
         $all_skwirrel_terms = $wpdb->get_results($wpdb->prepare(
-            "SELECT tm.term_id, tm.meta_value as skwirrel_id
+            "SELECT tm.term_id, tm.meta_value as skwirrel_id, t.name as term_name
              FROM {$wpdb->termmeta} tm
              INNER JOIN {$wpdb->term_taxonomy} tt ON tm.term_id = tt.term_id AND tt.taxonomy = 'product_cat'
+             INNER JOIN {$wpdb->terms} t ON tm.term_id = t.term_id
              WHERE tm.meta_key = %s AND tm.meta_value != ''",
             $cat_meta_key
         ));
@@ -1477,14 +1507,40 @@ class Skwirrel_WC_Sync_Service {
         $purged = 0;
 
         foreach ($all_skwirrel_terms as $term) {
-            if (!in_array($term->skwirrel_id, $seen, true)) {
-                $this->logger->info('Categorie verwijderd uit Skwirrel, opgeruimd', [
-                    'term_id' => $term->term_id,
-                    'skwirrel_id' => $term->skwirrel_id,
-                ]);
-                wp_delete_term((int) $term->term_id, 'product_cat');
-                $purged++;
+            if (in_array($term->skwirrel_id, $seen, true)) {
+                continue;
             }
+
+            // Veiligheidscheck: verwijder niet als er nog producten aan gekoppeld zijn
+            $product_count = (int) $wpdb->get_var($wpdb->prepare(
+                "SELECT COUNT(*) FROM {$wpdb->term_relationships} tr
+                 INNER JOIN {$wpdb->posts} p ON tr.object_id = p.ID
+                     AND p.post_type IN ('product', 'product_variation')
+                     AND p.post_status NOT IN ('trash', 'auto-draft')
+                 WHERE tr.term_taxonomy_id = (
+                     SELECT term_taxonomy_id FROM {$wpdb->term_taxonomy}
+                     WHERE term_id = %d AND taxonomy = 'product_cat'
+                 )",
+                $term->term_id
+            ));
+
+            if ($product_count > 0) {
+                $this->logger->warning('Categorie niet verwijderd: nog producten gekoppeld', [
+                    'term_id' => $term->term_id,
+                    'name' => $term->term_name,
+                    'skwirrel_id' => $term->skwirrel_id,
+                    'product_count' => $product_count,
+                ]);
+                continue;
+            }
+
+            $this->logger->info('Categorie verwijderd uit Skwirrel, opgeruimd', [
+                'term_id' => $term->term_id,
+                'name' => $term->term_name,
+                'skwirrel_id' => $term->skwirrel_id,
+            ]);
+            wp_delete_term((int) $term->term_id, 'product_cat');
+            $purged++;
         }
 
         if ($purged > 0) {
