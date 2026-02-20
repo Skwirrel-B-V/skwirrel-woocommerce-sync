@@ -24,6 +24,7 @@
   "scripts": {
     "build": "tsc && gulp",
     "dev": "tsc --watch",
+    "test": "jest",
     "lint": "eslint nodes credentials --ext .ts",
     "prepublishOnly": "npm run build"
   },
@@ -40,9 +41,12 @@
     ]
   },
   "devDependencies": {
+    "@types/jest": "^30.0.0",
     "@types/node": "^20.0.0",
     "gulp": "^4.0.2",
+    "jest": "^30.2.0",
     "n8n-workflow": "^1.0.0",
+    "ts-jest": "^29.4.6",
     "typescript": "^5.3.0"
   },
   "peerDependencies": {
