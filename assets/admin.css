@@ -5,3 +5,14 @@
 .skwirrel-sync-wrap .widefat.striped th {
     width: 200px;
 }
+
+/* Verwijderwaarschuwing banner */
+.skwirrel-sync-delete-warning {
+    border-left-color: #ffba00;
+}
+.skwirrel-sync-delete-warning p:first-of-type {
+    margin-bottom: 4px;
+}
+.skwirrel-sync-delete-warning small {
+    color: #666;
+}

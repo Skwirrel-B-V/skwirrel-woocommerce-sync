@@ -124,6 +124,8 @@ class Skwirrel_WC_Sync_Admin_Settings {
         $collection_parts = preg_split('/[\s,]+/', is_string($raw_collections) ? $raw_collections : '', -1, PREG_SPLIT_NO_EMPTY);
         $out['collection_ids'] = implode(', ', array_filter(array_map('trim', $collection_parts), 'is_numeric'));
         $out['verbose_logging'] = !empty($input['verbose_logging']);
+        $out['purge_stale_products'] = !empty($input['purge_stale_products']);
+        $out['show_delete_warning'] = !empty($input['show_delete_warning']);
         return $out;
     }
 
@@ -379,6 +381,20 @@ class Skwirrel_WC_Sync_Admin_Settings {
                         </td>
                     </tr>
                     <tr>
+                        <th scope="row"><?php esc_html_e('Verwijderde producten opruimen', 'skwirrel-wc-sync'); ?></th>
+                        <td>
+                            <label><input type="checkbox" name="<?php echo esc_attr(self::OPTION_KEY); ?>[purge_stale_products]" value="1" <?php checked(!empty($opts['purge_stale_products'])); ?> /> <?php esc_html_e('Producten en categorieën die niet meer in Skwirrel staan automatisch naar de prullenbak verplaatsen bij volledige sync', 'skwirrel-wc-sync'); ?></label>
+                            <p class="description"><?php esc_html_e('Alleen actief bij volledige sync (handmatige sync of na verwijdering in WooCommerce). Niet actief bij delta sync of wanneer collectie-filter is ingesteld.', 'skwirrel-wc-sync'); ?></p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><?php esc_html_e('Verwijderwaarschuwing tonen', 'skwirrel-wc-sync'); ?></th>
+                        <td>
+                            <label><input type="checkbox" name="<?php echo esc_attr(self::OPTION_KEY); ?>[show_delete_warning]" value="1" <?php checked($opts['show_delete_warning'] ?? true); ?> /> <?php esc_html_e('Toon waarschuwing bij het verwijderen van Skwirrel-producten en -categorieën in WooCommerce', 'skwirrel-wc-sync'); ?></label>
+                            <p class="description"><?php esc_html_e('Skwirrel is leidend: verwijderde producten worden bij de volgende sync opnieuw aangemaakt. Deze waarschuwing herinnert gebruikers hieraan.', 'skwirrel-wc-sync'); ?></p>
+                        </td>
+                    </tr>
+                    <tr>
                         <th scope="row"><label for="use_sku_field"><?php esc_html_e('SKU veld', 'skwirrel-wc-sync'); ?></label></th>
                         <td>
                             <select id="use_sku_field" name="<?php echo esc_attr(self::OPTION_KEY); ?>[use_sku_field]">
@@ -451,6 +467,22 @@ class Skwirrel_WC_Sync_Admin_Settings {
                             <td style="text-align: right;"><span style="color: #d63638; font-weight: bold; font-size: 16px;"><?php echo (int) ($last_result['failed'] ?? 0); ?></span></td>
                         </tr>
                         <?php
+                        $trashed_count = (int) ($last_result['trashed'] ?? 0);
+                        $cats_removed = (int) ($last_result['categories_removed'] ?? 0);
+                        if ($trashed_count > 0 || $cats_removed > 0) :
+                        ?>
+                        <tr style="background-color: #fff3cd;">
+                            <td><strong><?php esc_html_e('Verwijderd (prullenbak)', 'skwirrel-wc-sync'); ?></strong></td>
+                            <td style="text-align: right;"><span style="color: #856404; font-weight: bold; font-size: 16px;"><?php echo $trashed_count; ?></span></td>
+                        </tr>
+                        <?php if ($cats_removed > 0) : ?>
+                        <tr style="background-color: #fff3cd;">
+                            <td style="padding-left: 20px;"><?php esc_html_e('↳ Categorieën opgeruimd', 'skwirrel-wc-sync'); ?></td>
+                            <td style="text-align: right;"><span style="color: #856404;"><?php echo $cats_removed; ?></span></td>
+                        </tr>
+                        <?php endif; ?>
+                        <?php endif; ?>
+                        <?php
                         $with_a = (int) ($last_result['with_attributes'] ?? 0);
                         $without_a = (int) ($last_result['without_attributes'] ?? 0);
                         if ($with_a + $without_a > 0) :
@@ -493,6 +525,7 @@ class Skwirrel_WC_Sync_Admin_Settings {
                             <th style="text-align: right;"><?php esc_html_e('Aangemaakt', 'skwirrel-wc-sync'); ?></th>
                             <th style="text-align: right;"><?php esc_html_e('Bijgewerkt', 'skwirrel-wc-sync'); ?></th>
                             <th style="text-align: right;"><?php esc_html_e('Mislukt', 'skwirrel-wc-sync'); ?></th>
+                            <th style="text-align: right;"><?php esc_html_e('Verwijderd', 'skwirrel-wc-sync'); ?></th>
                             <th style="text-align: right;"><?php esc_html_e('Met kenm.', 'skwirrel-wc-sync'); ?></th>
                             <th style="text-align: right;"><?php esc_html_e('Zonder kenm.', 'skwirrel-wc-sync'); ?></th>
                             <th style="text-align: right;"><?php esc_html_e('Totaal', 'skwirrel-wc-sync'); ?></th>
@@ -505,6 +538,7 @@ class Skwirrel_WC_Sync_Admin_Settings {
                             $created = (int) ($entry['created'] ?? 0);
                             $updated = (int) ($entry['updated'] ?? 0);
                             $failed = (int) ($entry['failed'] ?? 0);
+                            $trashed_h = (int) ($entry['trashed'] ?? 0);
                             $with_attrs = (int) ($entry['with_attributes'] ?? 0);
                             $without_attrs = (int) ($entry['without_attributes'] ?? 0);
                             $total = $created + $updated + $failed;
@@ -522,6 +556,7 @@ class Skwirrel_WC_Sync_Admin_Settings {
                                 <td style="text-align: right;"><span style="color: #00a32a;"><?php echo $created; ?></span></td>
                                 <td style="text-align: right;"><span style="color: #007cba;"><?php echo $updated; ?></span></td>
                                 <td style="text-align: right;"><span style="color: #d63638;"><?php echo $failed; ?></span></td>
+                                <td style="text-align: right;"><span style="color: #856404;"><?php echo $trashed_h; ?></span></td>
                                 <td style="text-align: right;"><?php echo $with_attrs; ?></td>
                                 <td style="text-align: right;"><?php echo $without_attrs; ?></td>
                                 <td style="text-align: right;"><strong><?php echo $total; ?></strong></td>

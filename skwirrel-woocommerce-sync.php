@@ -96,6 +96,7 @@ final class Skwirrel_WC_Sync_Plugin {
         require_once SKWIRREL_WC_SYNC_PLUGIN_DIR . 'includes/class-admin-settings.php';
         require_once SKWIRREL_WC_SYNC_PLUGIN_DIR . 'includes/class-product-documents.php';
         require_once SKWIRREL_WC_SYNC_PLUGIN_DIR . 'includes/class-variation-attributes-fix.php';
+        require_once SKWIRREL_WC_SYNC_PLUGIN_DIR . 'includes/class-delete-protection.php';
     }
 
     private function register_hooks(): void {
@@ -103,6 +104,7 @@ final class Skwirrel_WC_Sync_Plugin {
         Skwirrel_WC_Sync_Action_Scheduler::instance();
         Skwirrel_WC_Sync_Product_Documents::instance();
         Skwirrel_WC_Sync_Variation_Attributes_Fix::init();
+        Skwirrel_WC_Sync_Delete_Protection::instance();
     }
 
     private function woocommerce_missing_notice(): void {
