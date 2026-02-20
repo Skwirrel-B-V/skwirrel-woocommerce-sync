@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-WordPress plugin that synchronises products from the Skwirrel ERP/PIM system into WooCommerce via a JSON-RPC 2.0 API. Written in PHP 8.1+, targeting WordPress 6.x and WooCommerce 8+.
+WordPress plugin that synchronises products from the Skwirrel ERP/PIM system into WooCommerce via a JSON-RPC 2.0 API. Written in PHP 8.1+, targeting WordPress 6.x and WooCommerce 8+ (tested up to 10.5).
 
 The plugin is Dutch-facing (UI strings in Dutch, text domain `skwirrel-wc-sync`).
 
@@ -24,6 +24,7 @@ Singleton-based class architecture without Composer autoloading — all classes 
 | `Skwirrel_WC_Sync_Logger` | `includes/class-logger.php` | Logging wrapper around WC_Logger |
 | `Skwirrel_WC_Sync_Product_Documents` | `includes/class-product-documents.php` | Frontend documents tab + admin meta box |
 | `Skwirrel_WC_Sync_Variation_Attributes_Fix` | `includes/class-variation-attributes-fix.php` | Patches WooCommerce variation attribute bugs |
+| `Skwirrel_WC_Sync_Delete_Protection` | `includes/class-delete-protection.php` | Delete warnings + force full sync after WC deletion |
 
 ### Dependency Flow
 
@@ -38,6 +39,7 @@ Admin_Settings
 
 Product_Documents (standalone)
 Variation_Attributes_Fix (static, standalone)
+Delete_Protection (standalone)
 ```
 
 ### External API
@@ -73,6 +75,7 @@ Authentication: Bearer token or `X-Skwirrel-Api-Token` header.
 | `_skwirrel_source_url` | Original CDN URL for media attachments |
 | `_skwirrel_url_hash` | SHA-256 hash of source URL (media deduplication) |
 | `_skwirrel_document_attachments` | Serialized array of document metadata |
+| `_skwirrel_category_id` | Skwirrel category ID (term meta on WC product_cat terms) |
 
 ## WP Options
 
@@ -83,6 +86,7 @@ Authentication: Bearer token or `X-Skwirrel-Api-Token` header.
 | `skwirrel_wc_sync_last_sync` | ISO timestamp of last sync run |
 | `skwirrel_wc_sync_last_result` | Result array of last sync (success, counts) |
 | `skwirrel_wc_sync_history` | Array of last 20 sync results |
+| `skwirrel_wc_sync_force_full_sync` | Flag: next scheduled sync runs as full sync (set after WC deletion) |
 
 ## Sync Flow
 
@@ -94,6 +98,28 @@ Authentication: Bearer token or `X-Skwirrel-Api-Token` header.
    - For each product: resolve unique key → find existing or create new → map fields → save
    - Products belonging to a group become `WC_Product_Variation`
    - Delta sync filters by `updated_on >= last_sync`
+   - If `sync_categories` enabled: categories are matched/created via Skwirrel ID or name
+   - After full sync (non-delta, no collection filter): purge stale products/categories (if `purge_stale_products` enabled)
+
+### Settings Keys (in `skwirrel_wc_sync_settings` array)
+
+| Key | Type | Default | Purpose |
+|-----|------|---------|---------|
+| `endpoint_url` | string | — | JSON-RPC endpoint URL |
+| `auth_type` | string | `bearer` | `bearer` or `static` |
+| `timeout` | int | `30` | HTTP request timeout (seconds) |
+| `retries` | int | `1` | Number of retry attempts |
+| `sync_interval` | string | `disabled` | Cron interval |
+| `batch_size` | int | `100` | Products per API page |
+| `sync_categories` | bool | `true` | Create/assign WC categories from Skwirrel |
+| `import_images` | bool | `true` | Download images to media library |
+| `sku_field` | string | `internal_product_code` | Which field to use as SKU |
+| `collection_ids` | string | — | Comma-separated collection IDs filter |
+| `purge_stale_products` | bool | `false` | Trash products not in Skwirrel after full sync |
+| `show_delete_warning` | bool | `true` | Show warning banner on Skwirrel-managed items |
+| `include_languages` | array | — | Language codes to include in API calls |
+| `image_language` | string | — | Preferred language for image selection |
+| `verbose_logging` | bool | `false` | Enable verbose sync logging |
 
 ## Development Notes
 
@@ -102,5 +128,7 @@ Authentication: Bearer token or `X-Skwirrel-Api-Token` header.
 - `debug-variations.php` is a standalone debug/diagnostic script (not loaded in production)
 - The `SKWIRREL_WC_SYNC_DEBUG_ETIM` constant enables detailed ETIM debug logging to the uploads directory
 - The `SKWIRREL_VERBOSE_SYNC` constant or `verbose_logging` setting enables verbose log output
-- No test suite currently exists
 - See `ASSUMPTIONS.md` for design decisions where the Skwirrel API docs were ambiguous
+- Static analysis: `vendor/bin/phpstan analyse` (config in `phpstan.neon.dist`)
+- Code style: `vendor/bin/phpcs` (config in `.phpcs.xml.dist`)
+- Tests: `vendor/bin/pest` (Pest PHP, config in `phpunit.xml.dist`)
