@@ -17,7 +17,11 @@ class Skwirrel_WC_Sync_Service {
     private const OPTION_LAST_SYNC = 'skwirrel_wc_sync_last_sync';
     private const OPTION_LAST_SYNC_RESULT = 'skwirrel_wc_sync_last_result';
     private const OPTION_SYNC_HISTORY = 'skwirrel_wc_sync_history';
+    private const OPTION_SYNC_PROGRESS = 'skwirrel_wc_sync_progress';
     private const MAX_HISTORY_ENTRIES = 20;
+    private const LOCK_TRANSIENT = 'skwirrel_wc_sync_running';
+    private const LOCK_TTL = 3600; // 1 hour
+    private const MEMORY_FLUSH_INTERVAL = 50;
 
     private Skwirrel_WC_Sync_Logger $logger;
     private Skwirrel_WC_Sync_Product_Mapper $mapper;
@@ -33,9 +37,30 @@ class Skwirrel_WC_Sync_Service {
      * @param bool $delta Use delta sync (updated_on >= last sync) if possible
      */
     public function run_sync(bool $delta = false): array {
+        // Sync lock: prevent concurrent runs
+        if (get_transient(self::LOCK_TRANSIENT)) {
+            $this->logger->warning('Sync is al actief, overslaan');
+            return ['success' => false, 'error' => 'Sync is al actief', 'created' => 0, 'updated' => 0, 'failed' => 0];
+        }
+        set_transient(self::LOCK_TRANSIENT, time(), self::LOCK_TTL);
+
+        try {
+            return $this->run_sync_internal($delta);
+        } finally {
+            delete_transient(self::LOCK_TRANSIENT);
+            delete_option(self::OPTION_SYNC_PROGRESS);
+        }
+    }
+
+    /**
+     * Internal sync implementation (called within lock).
+     */
+    private function run_sync_internal(bool $delta): array {
         if (function_exists('set_time_limit')) {
             @set_time_limit(0);
         }
+
+        do_action('skwirrel_wc_sync_before_sync', $delta);
 
         $client = $this->get_client();
         if (!$client) {
@@ -76,6 +101,8 @@ class Skwirrel_WC_Sync_Service {
         if (!empty($collection_ids)) {
             $get_params['collection_ids'] = $collection_ids;
         }
+
+        $get_params = apply_filters('skwirrel_wc_sync_api_params', $get_params, $delta);
 
         $this->logger->verbose('Sync started', [
             'delta' => $delta,
@@ -137,6 +164,7 @@ class Skwirrel_WC_Sync_Service {
         $with_attrs = 0;
         $without_attrs = 0;
         $logged_first_product = false;
+        $synced_external_ids = [];
 
         do {
             $this->logger->verbose('Processing batch', ['page' => $page, 'count' => count($products)]);
@@ -242,6 +270,13 @@ class Skwirrel_WC_Sync_Service {
                             $group_info
                         )
                         : $this->upsert_product($product);
+
+                    // Track synced external IDs for orphan cleanup
+                    $ext_key = $this->mapper->get_unique_key($product);
+                    if ($ext_key && $outcome !== 'skipped') {
+                        $synced_external_ids[$ext_key] = true;
+                    }
+
                     if ($outcome !== 'skipped') {
                         $attrs = $this->mapper->get_attributes($product);
                         $attr_count = count($attrs);
@@ -281,6 +316,29 @@ class Skwirrel_WC_Sync_Service {
             }
 
             $total_processed += count($products);
+
+            // Memory management: flush caches periodically
+            if ($total_processed % self::MEMORY_FLUSH_INTERVAL < count($products)) {
+                wp_cache_flush();
+                if (function_exists('gc_collect_cycles')) {
+                    gc_collect_cycles();
+                }
+                $this->logger->verbose('Memory flush', [
+                    'processed' => $total_processed,
+                    'memory_mb' => round(memory_get_usage(true) / 1048576, 1),
+                ]);
+            }
+
+            // Progress tracking
+            update_option(self::OPTION_SYNC_PROGRESS, [
+                'total' => $total_processed + ($get_params['limit'] * 2), // estimate
+                'processed' => $total_processed,
+                'phase' => 'products',
+                'created' => $created,
+                'updated' => $updated,
+                'failed' => $failed,
+            ], false);
+
             if (count($products) < $get_params['limit']) {
                 break;
             }
@@ -313,6 +371,14 @@ class Skwirrel_WC_Sync_Service {
 
         } while (!empty($products));
 
+        // Orphan cleanup: only on full sync (not delta)
+        if (!$delta && !empty($synced_external_ids)) {
+            $this->handle_orphan_cleanup($synced_external_ids);
+        }
+
+        // Related products: resolve cross-sell/upsell relationships after all products synced
+        $this->resolve_product_relations();
+
         $this->logger->verbose('Sync finished, persisting last sync timestamp');
 
         update_option(self::OPTION_LAST_SYNC, gmdate('Y-m-d\TH:i:s\Z'));
@@ -326,12 +392,16 @@ class Skwirrel_WC_Sync_Service {
             'without_attributes' => $without_attrs,
         ]);
 
-        return [
+        $result = [
             'success' => true,
             'created' => $created,
             'updated' => $updated,
             'failed' => $failed,
         ];
+
+        do_action('skwirrel_wc_sync_after_sync', $result);
+
+        return $result;
     }
 
     /**
@@ -363,6 +433,12 @@ class Skwirrel_WC_Sync_Service {
 
         $is_new = !$wc_id;
 
+        // Sync protection: skip if product is protected
+        if (!$is_new && get_post_meta($wc_id, '_skwirrel_sync_protected', true)) {
+            $this->logger->info('Product sync protected, skipping', ['wc_id' => $wc_id]);
+            return 'skipped';
+        }
+
         $this->logger->verbose('Upsert product', [
             'product' => $product['internal_product_code'] ?? $product['product_id'] ?? '?',
             'sku' => $sku,
@@ -381,39 +457,111 @@ class Skwirrel_WC_Sync_Service {
             }
         }
 
+        // --- Set all properties before first save ---
+
         $wc_product->set_sku($sku);
-        $wc_product->set_name($this->mapper->get_name($product));
+        $name = apply_filters('skwirrel_wc_sync_product_name', $this->mapper->get_name($product), $product);
+        $wc_product->set_name($name);
         $wc_product->set_short_description($this->mapper->get_short_description($product));
         $wc_product->set_description($this->mapper->get_long_description($product));
         $wc_product->set_status($this->mapper->get_status($product));
 
+        // GTIN as WooCommerce native field (WC 8.4+)
+        $gtin = $product['product_gtin'] ?? '';
+        if ($gtin !== '' && method_exists($wc_product, 'set_global_unique_id')) {
+            $wc_product->set_global_unique_id($gtin);
+        }
+
+        // Price
         $price = $this->mapper->get_regular_price($product);
+        $price = apply_filters('skwirrel_wc_sync_product_price', $price, $product);
         if ($this->mapper->is_price_on_request($product)) {
             $wc_product->set_regular_price('');
             $wc_product->set_price('');
             $wc_product->set_sold_individually(false);
+            $wc_product->set_catalog_visibility('catalog');
         } elseif ($price !== null) {
             $wc_product->set_regular_price((string) $price);
             $wc_product->set_price((string) $price);
         }
 
+        // Sale price
+        $sale = $this->mapper->get_sale_price($product);
+        if ($sale !== null && $price !== null && $sale < $price) {
+            $wc_product->set_sale_price((string) $sale);
+            $wc_product->set_price((string) $sale);
+        }
+
+        // Stock management
+        $stock = $this->mapper->get_stock_data($product);
+        if ($stock['manage']) {
+            $wc_product->set_manage_stock(true);
+            $wc_product->set_stock_quantity($stock['quantity']);
+            $wc_product->set_backorders($stock['backorders']);
+            $wc_product->set_stock_status($stock['status']);
+        } else {
+            $wc_product->set_manage_stock(false);
+            $wc_product->set_stock_status('instock');
+        }
+
+        // Weight & dimensions
+        $physical = $this->mapper->get_physical_data($product);
+        if ($physical['weight'] !== null) {
+            $wc_product->set_weight((string) $physical['weight']);
+        }
+        if ($physical['length'] !== null) {
+            $wc_product->set_length((string) $physical['length']);
+        }
+        if ($physical['width'] !== null) {
+            $wc_product->set_width((string) $physical['width']);
+        }
+        if ($physical['height'] !== null) {
+            $wc_product->set_height((string) $physical['height']);
+        }
+
+        // Menu order
+        foreach (['product_order', 'sort_order', 'display_order'] as $order_field) {
+            if (isset($product[$order_field]) && is_numeric($product[$order_field])) {
+                $wc_product->set_menu_order((int) $product[$order_field]);
+                break;
+            }
+        }
+
+        // Tax class
+        $options = $this->get_options();
+        $default_tax = $options['default_tax_class'] ?? '';
+        if ($default_tax !== '') {
+            $wc_product->set_tax_class($default_tax);
+        } else {
+            $this->apply_tax_class_from_api($wc_product, $product);
+        }
+
+        // Shipping class
+        $default_shipping = $options['default_shipping_class'] ?? '';
+        if ($default_shipping !== '' && is_numeric($default_shipping)) {
+            $wc_product->set_shipping_class_id((int) $default_shipping);
+        }
+
+        // Attributes
         $attrs = $this->mapper->get_attributes($product);
+        $attrs = apply_filters('skwirrel_wc_sync_product_attributes', $attrs, $product);
         if (!empty($attrs)) {
             $wc_attrs = [];
             $position = 0;
-            foreach ($attrs as $name => $value) {
+            foreach ($attrs as $attr_name => $value) {
                 $attr = new WC_Product_Attribute();
                 $attr->set_id(0);
-                $attr->set_name($name);
+                $attr->set_name($attr_name);
                 $attr->set_options([(string) $value]);
                 $attr->set_position($position++);
                 $attr->set_visible(true);
                 $attr->set_variation(false);
-                $wc_attrs[ sanitize_title($name) ] = $attr;
+                $wc_attrs[ sanitize_title($attr_name) ] = $attr;
             }
             $wc_product->set_attributes($wc_attrs);
         }
 
+        // First save (gets product ID)
         $wc_product->save();
 
         $id = $wc_product->get_id();
@@ -421,32 +569,60 @@ class Skwirrel_WC_Sync_Service {
         update_post_meta($id, $this->mapper->get_product_id_meta_key(), $product['product_id'] ?? 0);
         update_post_meta($id, $this->mapper->get_synced_at_meta_key(), time());
 
-        $img_ids = $this->mapper->get_image_attachment_ids($product, $id);
-        if (!empty($img_ids)) {
-            $wc_product->set_image_id($img_ids[0]);           // First image = featured
-            $wc_product->set_gallery_image_ids(array_slice($img_ids, 1)); // All others = gallery
-            $wc_product->save();
+        // Store related product SKUs for post-sync resolution
+        $related = $this->mapper->get_related_skus($product);
+        if (!empty($related['upsell']) || !empty($related['cross_sell'])) {
+            update_post_meta($id, '_skwirrel_pending_relations', $related);
         }
 
+        // Images (need product ID for attachment parent)
+        $needs_second_save = false;
+        $img_ids = $this->mapper->get_image_attachment_ids($product, $id);
+        if (!empty($img_ids)) {
+            $wc_product->set_image_id($img_ids[0]);
+            $wc_product->set_gallery_image_ids(array_slice($img_ids, 1));
+            $needs_second_save = true;
+        }
+
+        // Downloads
         $downloads = $this->mapper->get_downloadable_files($product, $id);
         if (!empty($downloads)) {
             $wc_product->set_downloadable(true);
             $wc_product->set_downloads($this->format_downloads($downloads));
+            $needs_second_save = true;
+        }
+
+        // Second save only if images or downloads were added
+        if ($needs_second_save) {
             $wc_product->save();
         }
 
+        // Documents (post meta only, no product save needed)
         $documents = $this->mapper->get_document_attachments($product, $id);
         update_post_meta($id, '_skwirrel_document_attachments', $documents);
 
-        $this->assign_categories($id, $product);
+        // Categories
+        $categories = $this->mapper->get_categories($product);
+        $categories = apply_filters('skwirrel_wc_sync_product_categories', $categories, $product);
+        $this->assign_categories_from_data($id, $categories);
 
+        // Tags
+        $tags = $this->mapper->get_tags($product);
+        if (!empty($tags)) {
+            wp_set_object_terms($id, $tags, 'product_tag', false);
+        }
+
+        // Brand as taxonomy
+        $this->assign_brand_taxonomy($id, $product);
+
+        // Attribute meta (for compatibility)
         if (!empty($attrs)) {
             $product_attrs = [];
             $position = 0;
-            foreach ($attrs as $name => $value) {
-                $slug = sanitize_title($name);
+            foreach ($attrs as $attr_name => $value) {
+                $slug = sanitize_title($attr_name);
                 $product_attrs[ $slug ] = [
-                    'name'         => $name,
+                    'name'         => $attr_name,
                     'value'        => (string) $value,
                     'position'     => (string) $position++,
                     'is_visible'   => 1,
@@ -459,14 +635,15 @@ class Skwirrel_WC_Sync_Service {
             if (function_exists('wc_delete_product_transients')) {
                 wc_delete_product_transients($id);
             }
-            $this->logger->verbose('Attributes saved (product+meta)', [
-                'wc_id' => $id,
-                'attr_count' => count($attrs),
-                'names' => array_keys($attrs),
-            ]);
         }
 
-        return $is_new ? 'created' : 'updated';
+        // SEO meta mapping
+        $this->apply_seo_meta($id, $product);
+
+        $outcome = $is_new ? 'created' : 'updated';
+        do_action('skwirrel_wc_sync_after_product_save', $id, $product, $outcome);
+
+        return $outcome;
     }
 
     private const GROUPED_PRODUCT_ID_META = '_skwirrel_grouped_product_id';
@@ -718,21 +895,26 @@ class Skwirrel_WC_Sync_Service {
         }
 
         $variation->set_sku($sku);
-        $variation->set_status('publish'); // Ensure variation is enabled
-        $variation->set_catalog_visibility('visible'); // Make visible in catalog
+        $variation->set_status('publish');
+        $variation->set_catalog_visibility('visible');
+
+        // GTIN (WC 8.4+)
+        $gtin = $product['product_gtin'] ?? '';
+        if ($gtin !== '' && method_exists($variation, 'set_global_unique_id')) {
+            $variation->set_global_unique_id($gtin);
+        }
 
         $price = $this->mapper->get_regular_price($product);
+        $price = apply_filters('skwirrel_wc_sync_product_price', $price, $product);
         if ($this->mapper->is_price_on_request($product)) {
             $variation->set_regular_price('');
             $variation->set_price('');
-            $variation->set_stock_status('outofstock'); // Price on request = out of stock
+            $variation->set_stock_status('outofstock');
         } elseif ($price !== null && $price > 0) {
             $variation->set_regular_price((string) $price);
             $variation->set_price((string) $price);
             $variation->set_stock_status('instock');
-            $variation->set_manage_stock(false); // Don't manage stock, always available
         } else {
-            // No price available - set to 0 and log warning
             $this->logger->warning('Variation has no price, setting to 0', [
                 'sku' => $sku,
                 'product_id' => $product['product_id'] ?? '?',
@@ -741,7 +923,39 @@ class Skwirrel_WC_Sync_Service {
             $variation->set_regular_price('0');
             $variation->set_price('0');
             $variation->set_stock_status('instock');
+        }
+
+        // Sale price
+        $sale = $this->mapper->get_sale_price($product);
+        if ($sale !== null && $price !== null && $sale < $price) {
+            $variation->set_sale_price((string) $sale);
+            $variation->set_price((string) $sale);
+        }
+
+        // Stock management
+        $stock = $this->mapper->get_stock_data($product);
+        if ($stock['manage']) {
+            $variation->set_manage_stock(true);
+            $variation->set_stock_quantity($stock['quantity']);
+            $variation->set_backorders($stock['backorders']);
+            $variation->set_stock_status($stock['status']);
+        } else {
             $variation->set_manage_stock(false);
+        }
+
+        // Weight & dimensions
+        $physical = $this->mapper->get_physical_data($product);
+        if ($physical['weight'] !== null) {
+            $variation->set_weight((string) $physical['weight']);
+        }
+        if ($physical['length'] !== null) {
+            $variation->set_length((string) $physical['length']);
+        }
+        if ($physical['width'] !== null) {
+            $variation->set_width((string) $physical['width']);
+        }
+        if ($physical['height'] !== null) {
+            $variation->set_height((string) $physical['height']);
         }
 
         $variation_attrs = [];
@@ -903,65 +1117,12 @@ class Skwirrel_WC_Sync_Service {
     }
 
     /**
-     * Assign product categories to a WooCommerce product.
-     * Matches by Skwirrel category ID first (term meta), then by name.
-     * Supports parent/child hierarchy from _categories data.
+     * Assign product categories to a WooCommerce product (legacy wrapper).
      */
     private function assign_categories(int $wc_product_id, array $product): void {
         $categories = $this->mapper->get_categories($product);
-        if (empty($categories)) {
-            return;
-        }
-
-        $tax = 'product_cat';
-        $term_ids = [];
-        $cat_id_meta = Skwirrel_WC_Sync_Product_Mapper::CATEGORY_ID_META;
-
-        foreach ($categories as $cat) {
-            $cat_id = $cat['id'] ?? null;
-            $cat_name = $cat['name'];
-            $parent_id = $cat['parent_id'] ?? null;
-            $parent_name = $cat['parent_name'] ?? '';
-            $wc_parent_term_id = 0;
-
-            // Resolve parent term first (if any)
-            if ($parent_name !== '' || $parent_id !== null) {
-                $wc_parent_term_id = $this->find_or_create_category_term(
-                    $parent_id,
-                    $parent_name,
-                    $tax,
-                    $cat_id_meta,
-                    0
-                );
-            }
-
-            // Resolve the category itself
-            $wc_term_id = $this->find_or_create_category_term(
-                $cat_id,
-                $cat_name,
-                $tax,
-                $cat_id_meta,
-                $wc_parent_term_id
-            );
-
-            if ($wc_term_id) {
-                $term_ids[] = $wc_term_id;
-                // Include parent too
-                if ($wc_parent_term_id) {
-                    $term_ids[] = $wc_parent_term_id;
-                }
-            }
-        }
-
-        $term_ids = array_unique(array_map('intval', $term_ids));
-        if (!empty($term_ids)) {
-            wp_set_object_terms($wc_product_id, $term_ids, $tax);
-            $this->logger->verbose('Categories assigned', [
-                'wc_product_id' => $wc_product_id,
-                'term_ids' => $term_ids,
-                'names' => array_column($categories, 'name'),
-            ]);
-        }
+        $categories = apply_filters('skwirrel_wc_sync_product_categories', $categories, $product);
+        $this->assign_categories_from_data($wc_product_id, $categories);
     }
 
     /**
@@ -1332,10 +1493,261 @@ class Skwirrel_WC_Sync_Service {
         return $id ? (int) $id : 0;
     }
 
+    /**
+     * Assign categories from pre-mapped data (used after apply_filters).
+     */
+    private function assign_categories_from_data(int $wc_product_id, array $categories): void {
+        if (empty($categories)) {
+            return;
+        }
+
+        $tax = 'product_cat';
+        $term_ids = [];
+        $cat_id_meta = Skwirrel_WC_Sync_Product_Mapper::CATEGORY_ID_META;
+
+        foreach ($categories as $cat) {
+            $cat_id = $cat['id'] ?? null;
+            $cat_name = $cat['name'];
+            $parent_id = $cat['parent_id'] ?? null;
+            $parent_name = $cat['parent_name'] ?? '';
+            $wc_parent_term_id = 0;
+
+            if ($parent_name !== '' || $parent_id !== null) {
+                $wc_parent_term_id = $this->find_or_create_category_term(
+                    $parent_id, $parent_name, $tax, $cat_id_meta, 0
+                );
+            }
+
+            $wc_term_id = $this->find_or_create_category_term(
+                $cat_id, $cat_name, $tax, $cat_id_meta, $wc_parent_term_id
+            );
+
+            if ($wc_term_id) {
+                $term_ids[] = $wc_term_id;
+                if ($wc_parent_term_id) {
+                    $term_ids[] = $wc_parent_term_id;
+                }
+            }
+        }
+
+        $term_ids = array_unique(array_map('intval', $term_ids));
+        if (!empty($term_ids)) {
+            wp_set_object_terms($wc_product_id, $term_ids, $tax);
+        }
+    }
+
+    /**
+     * Handle orphan cleanup after full sync.
+     * Removes/drafts/trashes products with _skwirrel_external_id not in current sync set.
+     */
+    private function handle_orphan_cleanup(array $synced_external_ids): void {
+        $options = $this->get_options();
+        $action = $options['orphan_action'] ?? 'nothing';
+        if ($action === 'nothing') {
+            return;
+        }
+
+        global $wpdb;
+        $meta_key = $this->mapper->get_external_id_meta_key();
+
+        $all_skwirrel_products = $wpdb->get_results($wpdb->prepare(
+            "SELECT pm.post_id, pm.meta_value FROM {$wpdb->postmeta} pm
+             INNER JOIN {$wpdb->posts} p ON pm.post_id = p.ID
+             WHERE pm.meta_key = %s AND p.post_type IN ('product', 'product_variation') AND p.post_status != 'trash'",
+            $meta_key
+        ));
+
+        $orphan_count = 0;
+        foreach ($all_skwirrel_products as $row) {
+            if (!isset($synced_external_ids[$row->meta_value])) {
+                if ($action === 'draft') {
+                    wp_update_post(['ID' => (int) $row->post_id, 'post_status' => 'draft']);
+                } elseif ($action === 'trash') {
+                    wp_trash_post((int) $row->post_id);
+                }
+                $orphan_count++;
+            }
+        }
+
+        if ($orphan_count > 0) {
+            $this->logger->info('Orphan cleanup completed', [
+                'action' => $action,
+                'orphaned_products' => $orphan_count,
+            ]);
+        }
+    }
+
+    /**
+     * Resolve pending product relations (upsell/cross-sell) after all products are synced.
+     */
+    private function resolve_product_relations(): void {
+        global $wpdb;
+        $meta_key = '_skwirrel_pending_relations';
+        $products = $wpdb->get_results(
+            "SELECT post_id, meta_value FROM {$wpdb->postmeta} WHERE meta_key = '{$meta_key}'"
+        );
+
+        if (empty($products)) {
+            return;
+        }
+
+        foreach ($products as $row) {
+            $relations = maybe_unserialize($row->meta_value);
+            if (!is_array($relations)) {
+                continue;
+            }
+            $wc_product = wc_get_product((int) $row->post_id);
+            if (!$wc_product) {
+                continue;
+            }
+
+            $changed = false;
+
+            // Resolve upsell SKUs
+            if (!empty($relations['upsell'])) {
+                $upsell_ids = [];
+                foreach ($relations['upsell'] as $sku) {
+                    $id = wc_get_product_id_by_sku($sku);
+                    if ($id) {
+                        $upsell_ids[] = $id;
+                    }
+                }
+                if (!empty($upsell_ids)) {
+                    $wc_product->set_upsell_ids($upsell_ids);
+                    $changed = true;
+                }
+            }
+
+            // Resolve cross-sell SKUs
+            if (!empty($relations['cross_sell'])) {
+                $cross_ids = [];
+                foreach ($relations['cross_sell'] as $sku) {
+                    $id = wc_get_product_id_by_sku($sku);
+                    if ($id) {
+                        $cross_ids[] = $id;
+                    }
+                }
+                if (!empty($cross_ids)) {
+                    $wc_product->set_cross_sell_ids($cross_ids);
+                    $changed = true;
+                }
+            }
+
+            if ($changed) {
+                $wc_product->save();
+            }
+            delete_post_meta((int) $row->post_id, $meta_key);
+        }
+    }
+
+    /**
+     * Assign brand to taxonomy if available (Perfect WooCommerce Brands or similar).
+     */
+    private function assign_brand_taxonomy(int $wc_id, array $product): void {
+        $options = $this->get_options();
+        if (empty($options['brand_as_taxonomy'])) {
+            return;
+        }
+
+        $brand = $product['brand_name'] ?? '';
+        if ($brand === '') {
+            return;
+        }
+
+        // Check for known brand taxonomies
+        $taxonomies = ['product_brand', 'pwb-brand'];
+        foreach ($taxonomies as $tax) {
+            if (taxonomy_exists($tax)) {
+                wp_set_object_terms($wc_id, $brand, $tax, false);
+                return;
+            }
+        }
+    }
+
+    /**
+     * Apply tax class based on API VAT rate.
+     */
+    private function apply_tax_class_from_api(WC_Product $wc_product, array $product): void {
+        $trade_items = $product['_trade_items'] ?? [];
+        foreach ($trade_items as $ti) {
+            $prices = $ti['_trade_item_prices'] ?? [];
+            foreach ($prices as $p) {
+                $vat = $p['vat_rate'] ?? $p['tax_percentage'] ?? null;
+                if ($vat !== null && is_numeric($vat)) {
+                    $rate = (float) $vat;
+                    if ($rate === 0.0) {
+                        $wc_product->set_tax_class('zero-rate');
+                    } elseif ($rate <= 10.0) {
+                        $wc_product->set_tax_class('reduced-rate');
+                    }
+                    // standard rate is WC default, no need to set
+                    return;
+                }
+            }
+        }
+    }
+
+    /**
+     * Apply SEO meta description from product marketing text.
+     * Only writes if field is currently empty (don't overwrite manual edits).
+     */
+    private function apply_seo_meta(int $wc_id, array $product): void {
+        $translations = $product['_product_translations'] ?? [];
+        $marketing_text = '';
+        foreach ($translations as $t) {
+            $text = $t['product_marketing_text'] ?? '';
+            if ($text !== '') {
+                $marketing_text = $text;
+                break;
+            }
+        }
+        if ($marketing_text === '') {
+            return;
+        }
+
+        // Truncate to 160 chars for meta description
+        $desc = mb_substr(wp_strip_all_tags($marketing_text), 0, 160);
+
+        // Yoast SEO
+        if (defined('WPSEO_VERSION') || function_exists('YoastSEO')) {
+            $current = get_post_meta($wc_id, '_yoast_wpseo_metadesc', true);
+            if (empty($current)) {
+                update_post_meta($wc_id, '_yoast_wpseo_metadesc', $desc);
+            }
+            return;
+        }
+
+        // Rank Math
+        if (class_exists('RankMath')) {
+            $current = get_post_meta($wc_id, 'rank_math_description', true);
+            if (empty($current)) {
+                update_post_meta($wc_id, 'rank_math_description', $desc);
+            }
+        }
+    }
+
+    /**
+     * Check if sync is currently running.
+     */
+    public static function is_sync_running(): bool {
+        return (bool) get_transient(self::LOCK_TRANSIENT);
+    }
+
+    /**
+     * Get current sync progress.
+     *
+     * @return array|null Progress data or null if no sync running
+     */
+    public static function get_sync_progress(): ?array {
+        $progress = get_option(self::OPTION_SYNC_PROGRESS, null);
+        return is_array($progress) ? $progress : null;
+    }
+
     private function format_downloads(array $files): array {
         $downloads = [];
-        foreach ($files as $i => $f) {
-            $downloads[(string) $i] = [
+        foreach ($files as $f) {
+            $key = md5($f['file']);
+            $downloads[$key] = [
                 'name' => $f['name'],
                 'file' => $f['file'],
             ];

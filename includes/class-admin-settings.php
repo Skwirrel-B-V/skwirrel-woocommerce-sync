@@ -47,6 +47,10 @@ class Skwirrel_WC_Sync_Admin_Settings {
         add_action('admin_enqueue_scripts', [$this, 'enqueue_assets']);
         add_action('wp_ajax_' . self::BG_SYNC_ACTION, [$this, 'handle_background_sync']);
         add_action('wp_ajax_nopriv_' . self::BG_SYNC_ACTION, [$this, 'handle_background_sync']);
+        add_action('wp_ajax_skwirrel_wc_sync_progress', [$this, 'handle_progress_ajax']);
+        add_action('wp_ajax_skwirrel_wc_sync_download_log', [$this, 'handle_log_download']);
+        add_action('add_meta_boxes', [$this, 'add_sync_protection_meta_box']);
+        add_action('save_post_product', [$this, 'save_sync_protection_meta'], 10, 2);
     }
 
     public function add_menu(): void {
@@ -124,6 +128,18 @@ class Skwirrel_WC_Sync_Admin_Settings {
         $collection_parts = preg_split('/[\s,]+/', is_string($raw_collections) ? $raw_collections : '', -1, PREG_SPLIT_NO_EMPTY);
         $out['collection_ids'] = implode(', ', array_filter(array_map('trim', $collection_parts), 'is_numeric'));
         $out['verbose_logging'] = !empty($input['verbose_logging']);
+        // Stock management
+        $out['stock_management'] = in_array($input['stock_management'] ?? 'off', ['off', 'on'], true) ? $input['stock_management'] : 'off';
+        // Orphan action
+        $out['orphan_action'] = in_array($input['orphan_action'] ?? 'nothing', ['nothing', 'draft', 'trash'], true) ? $input['orphan_action'] : 'nothing';
+        // Tax class
+        $out['default_tax_class'] = sanitize_text_field($input['default_tax_class'] ?? '');
+        // Shipping class
+        $out['default_shipping_class'] = sanitize_text_field($input['default_shipping_class'] ?? '');
+        // Brand as taxonomy
+        $out['brand_as_taxonomy'] = !empty($input['brand_as_taxonomy']);
+        // Webhook secret
+        $out['webhook_secret'] = sanitize_text_field($input['webhook_secret'] ?? '');
         return $out;
     }
 
@@ -214,6 +230,100 @@ class Skwirrel_WC_Sync_Admin_Settings {
         $service->run_sync(false);
 
         wp_die('', 200);
+    }
+
+    /**
+     * AJAX handler for sync progress polling.
+     */
+    public function handle_progress_ajax(): void {
+        if (!current_user_can('manage_woocommerce')) {
+            wp_send_json_error('No access', 403);
+        }
+        $running = Skwirrel_WC_Sync_Service::is_sync_running();
+        $progress = Skwirrel_WC_Sync_Service::get_sync_progress();
+        wp_send_json_success([
+            'running' => $running,
+            'progress' => $progress,
+        ]);
+    }
+
+    /**
+     * AJAX handler for log file download.
+     */
+    public function handle_log_download(): void {
+        if (!current_user_can('manage_woocommerce')) {
+            wp_die(esc_html__('Geen toegang.', 'skwirrel-wc-sync'));
+        }
+        check_admin_referer('skwirrel_wc_sync_download_log');
+
+        $log_dir = WC_LOG_DIR ?? WP_CONTENT_DIR . '/wc-logs/';
+        $files = glob($log_dir . 'skwirrel-wc-sync*.log');
+        if (empty($files)) {
+            wp_die(esc_html__('Geen logbestanden gevonden.', 'skwirrel-wc-sync'));
+        }
+
+        // Get the most recent log file
+        usort($files, fn($a, $b) => filemtime($b) <=> filemtime($a));
+        $file = $files[0];
+
+        header('Content-Type: text/plain; charset=utf-8');
+        header('Content-Disposition: attachment; filename="skwirrel-wc-sync-' . date('Y-m-d') . '.log"');
+        header('Content-Length: ' . filesize($file));
+        readfile($file);
+        exit;
+    }
+
+    /**
+     * Add sync protection meta box to product edit screen.
+     */
+    public function add_sync_protection_meta_box(): void {
+        add_meta_box(
+            'skwirrel_sync_protection',
+            __('Skwirrel Sync', 'skwirrel-wc-sync'),
+            [$this, 'render_sync_protection_meta_box'],
+            'product',
+            'side',
+            'default'
+        );
+    }
+
+    /**
+     * Render sync protection meta box.
+     */
+    public function render_sync_protection_meta_box(WP_Post $post): void {
+        $protected = get_post_meta($post->ID, '_skwirrel_sync_protected', true);
+        $synced_at = get_post_meta($post->ID, '_skwirrel_synced_at', true);
+        wp_nonce_field('skwirrel_sync_protection', '_skwirrel_sync_nonce');
+        ?>
+        <p>
+            <label>
+                <input type="checkbox" name="_skwirrel_sync_protected" value="1" <?php checked($protected); ?> />
+                <?php esc_html_e('Bescherm tegen overschrijving', 'skwirrel-wc-sync'); ?>
+            </label>
+        </p>
+        <?php if ($synced_at) : ?>
+            <p class="description">
+                <?php echo esc_html__('Laatste sync:', 'skwirrel-wc-sync') . ' ' . esc_html(wp_date(get_option('date_format') . ' ' . get_option('time_format'), (int) $synced_at)); ?>
+            </p>
+        <?php endif; ?>
+        <?php
+    }
+
+    /**
+     * Save sync protection checkbox.
+     */
+    public function save_sync_protection_meta(int $post_id, WP_Post $post): void {
+        if (!isset($_POST['_skwirrel_sync_nonce']) || !wp_verify_nonce($_POST['_skwirrel_sync_nonce'], 'skwirrel_sync_protection')) {
+            return;
+        }
+        if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) {
+            return;
+        }
+        if (!current_user_can('edit_post', $post_id)) {
+            return;
+        }
+        $protected = !empty($_POST['_skwirrel_sync_protected']);
+        update_post_meta($post_id, '_skwirrel_sync_protected', $protected ? '1' : '');
     }
 
     public function enqueue_assets(string $hook): void {
@@ -387,6 +497,65 @@ class Skwirrel_WC_Sync_Admin_Settings {
                             </select>
                         </td>
                     </tr>
+                    <tr>
+                        <th scope="row"><label for="stock_management"><?php esc_html_e('Voorraad synchroniseren', 'skwirrel-wc-sync'); ?></label></th>
+                        <td>
+                            <select id="stock_management" name="<?php echo esc_attr(self::OPTION_KEY); ?>[stock_management]">
+                                <option value="off" <?php selected($opts['stock_management'] ?? 'off', 'off'); ?>><?php esc_html_e('Uit (altijd op voorraad)', 'skwirrel-wc-sync'); ?></option>
+                                <option value="on" <?php selected($opts['stock_management'] ?? 'off', 'on'); ?>><?php esc_html_e('Aan (sync vanuit API)', 'skwirrel-wc-sync'); ?></option>
+                            </select>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><label for="orphan_action"><?php esc_html_e('Verweesde producten', 'skwirrel-wc-sync'); ?></label></th>
+                        <td>
+                            <select id="orphan_action" name="<?php echo esc_attr(self::OPTION_KEY); ?>[orphan_action]">
+                                <option value="nothing" <?php selected($opts['orphan_action'] ?? 'nothing', 'nothing'); ?>><?php esc_html_e('Niets doen', 'skwirrel-wc-sync'); ?></option>
+                                <option value="draft" <?php selected($opts['orphan_action'] ?? 'nothing', 'draft'); ?>><?php esc_html_e('Naar concept', 'skwirrel-wc-sync'); ?></option>
+                                <option value="trash" <?php selected($opts['orphan_action'] ?? 'nothing', 'trash'); ?>><?php esc_html_e('Naar prullenbak', 'skwirrel-wc-sync'); ?></option>
+                            </select>
+                            <p class="description"><?php esc_html_e('Actie voor producten die niet meer in Skwirrel voorkomen na een volledige sync.', 'skwirrel-wc-sync'); ?></p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><label for="default_tax_class"><?php esc_html_e('Standaard belastingklasse', 'skwirrel-wc-sync'); ?></label></th>
+                        <td>
+                            <select id="default_tax_class" name="<?php echo esc_attr(self::OPTION_KEY); ?>[default_tax_class]">
+                                <option value=""><?php esc_html_e('Automatisch (uit API)', 'skwirrel-wc-sync'); ?></option>
+                                <?php foreach (WC_Tax::get_tax_classes() as $tax_class) : ?>
+                                    <option value="<?php echo esc_attr(sanitize_title($tax_class)); ?>" <?php selected($opts['default_tax_class'] ?? '', sanitize_title($tax_class)); ?>><?php echo esc_html($tax_class); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><label for="default_shipping_class"><?php esc_html_e('Standaard verzendklasse', 'skwirrel-wc-sync'); ?></label></th>
+                        <td>
+                            <select id="default_shipping_class" name="<?php echo esc_attr(self::OPTION_KEY); ?>[default_shipping_class]">
+                                <option value=""><?php esc_html_e('Geen', 'skwirrel-wc-sync'); ?></option>
+                                <?php
+                                $shipping_classes = get_terms(['taxonomy' => 'product_shipping_class', 'hide_empty' => false]);
+                                if (!is_wp_error($shipping_classes)) :
+                                    foreach ($shipping_classes as $sc) : ?>
+                                        <option value="<?php echo esc_attr((string) $sc->term_id); ?>" <?php selected($opts['default_shipping_class'] ?? '', (string) $sc->term_id); ?>><?php echo esc_html($sc->name); ?></option>
+                                    <?php endforeach;
+                                endif; ?>
+                            </select>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><?php esc_html_e('Merk als taxonomy', 'skwirrel-wc-sync'); ?></th>
+                        <td>
+                            <label><input type="checkbox" name="<?php echo esc_attr(self::OPTION_KEY); ?>[brand_as_taxonomy]" value="1" <?php checked(!empty($opts['brand_as_taxonomy'])); ?> /> <?php esc_html_e('Gebruik merk als taxonomy indien beschikbaar (bijv. Perfect WooCommerce Brands)', 'skwirrel-wc-sync'); ?></label>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><label for="webhook_secret"><?php esc_html_e('Webhook secret', 'skwirrel-wc-sync'); ?></label></th>
+                        <td>
+                            <input type="text" id="webhook_secret" name="<?php echo esc_attr(self::OPTION_KEY); ?>[webhook_secret]" value="<?php echo esc_attr($opts['webhook_secret'] ?? ''); ?>" class="regular-text" />
+                            <p class="description"><?php esc_html_e('Geheim voor webhook authenticatie. Laat leeg om webhooks uit te schakelen.', 'skwirrel-wc-sync'); ?></p>
+                        </td>
+                    </tr>
                 </table>
 
                 <?php submit_button(__('Instellingen opslaan', 'skwirrel-wc-sync')); ?>
@@ -401,7 +570,52 @@ class Skwirrel_WC_Sync_Admin_Settings {
                 <?php if ($log_url) : ?>
                     <a href="<?php echo esc_url($log_url); ?>" class="button" target="_blank"><?php esc_html_e('Bekijk logs', 'skwirrel-wc-sync'); ?></a>
                 <?php endif; ?>
+                <a href="<?php echo esc_url(wp_nonce_url(admin_url('admin-ajax.php?action=skwirrel_wc_sync_download_log'), 'skwirrel_wc_sync_download_log')); ?>" class="button"><?php esc_html_e('Download logs', 'skwirrel-wc-sync'); ?></a>
             </p>
+
+            <div id="skwirrel-sync-progress" style="display:none; margin: 15px 0;">
+                <p><strong><?php esc_html_e('Sync bezig...', 'skwirrel-wc-sync'); ?></strong></p>
+                <div style="background:#e0e0e0; border-radius:4px; height:24px; position:relative; overflow:hidden;">
+                    <div id="skwirrel-progress-bar" style="background:#0073aa; height:100%; width:0%; transition:width 0.3s; border-radius:4px;"></div>
+                    <span id="skwirrel-progress-text" style="position:absolute; top:0; left:50%; transform:translateX(-50%); line-height:24px; font-size:12px; font-weight:bold; color:#333;"></span>
+                </div>
+                <p id="skwirrel-progress-details" style="margin-top:8px; color:#666;"></p>
+            </div>
+            <script>
+            (function(){
+                var polling = null;
+                function checkProgress() {
+                    fetch(ajaxurl + '?action=skwirrel_wc_sync_progress&_=' + Date.now(), {credentials:'same-origin'})
+                        .then(function(r){return r.json();})
+                        .then(function(d){
+                            if (!d.success) return;
+                            var data = d.data;
+                            var el = document.getElementById('skwirrel-sync-progress');
+                            if (data.running && data.progress) {
+                                el.style.display = 'block';
+                                var p = data.progress;
+                                var pct = p.total > 0 ? Math.min(100, Math.round(p.processed / p.total * 100)) : 0;
+                                document.getElementById('skwirrel-progress-bar').style.width = pct + '%';
+                                document.getElementById('skwirrel-progress-text').textContent = pct + '%';
+                                document.getElementById('skwirrel-progress-details').textContent =
+                                    'Verwerkt: ' + p.processed + ' | Aangemaakt: ' + (p.created||0) + ' | Bijgewerkt: ' + (p.updated||0) + ' | Mislukt: ' + (p.failed||0);
+                            } else if (!data.running && el.style.display !== 'none') {
+                                el.style.display = 'none';
+                                if (polling) { clearInterval(polling); polling = null; }
+                                location.reload();
+                            }
+                        }).catch(function(){});
+                }
+                // Start polling if sync was just queued or is running
+                <?php if (isset($_GET['sync']) && $_GET['sync'] === 'queued') : ?>
+                polling = setInterval(checkProgress, 3000);
+                checkProgress();
+                <?php else : ?>
+                checkProgress();
+                setTimeout(function(){ if (!polling) { polling = setInterval(checkProgress, 5000); } }, 1000);
+                <?php endif; ?>
+            })();
+            </script>
 
             <h2><?php esc_html_e('Variatie-attributen debuggen', 'skwirrel-wc-sync'); ?></h2>
             <p><?php esc_html_e('Als variaties "Any Colour" / "Any Number of cups" tonen in plaats van echte waarden:', 'skwirrel-wc-sync'); ?></p>

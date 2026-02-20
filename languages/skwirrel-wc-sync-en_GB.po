@@ -328,3 +328,66 @@ msgstr "Daily"
 msgid "Wekelijks"
 msgstr "Weekly"
 
+msgid "Ja"
+msgstr "Yes"
+
+msgid "Nee"
+msgstr "No"
+
+msgid "Sync is al actief"
+msgstr "Sync is already running"
+
+msgid "Voorraad"
+msgstr "Stock"
+
+msgid "Uit (altijd op voorraad)"
+msgstr "Off (always in stock)"
+
+msgid "Aan (sync vanuit API)"
+msgstr "On (sync from API)"
+
+msgid "Voorraad synchroniseren"
+msgstr "Sync stock"
+
+msgid "Verweesde producten"
+msgstr "Orphaned products"
+
+msgid "Niets doen"
+msgstr "Do nothing"
+
+msgid "Naar concept"
+msgstr "Move to draft"
+
+msgid "Naar prullenbak"
+msgstr "Move to trash"
+
+msgid "Actie voor producten die niet meer in Skwirrel voorkomen na een volledige sync."
+msgstr "Action for products no longer in Skwirrel after a full sync."
+
+msgid "Standaard belastingklasse"
+msgstr "Default tax class"
+
+msgid "Standaard verzendklasse"
+msgstr "Default shipping class"
+
+msgid "Merk als taxonomy"
+msgstr "Brand as taxonomy"
+
+msgid "Gebruik merk als taxonomy indien beschikbaar (bijv. Perfect WooCommerce Brands)"
+msgstr "Use brand as taxonomy if available (e.g. Perfect WooCommerce Brands)"
+
+msgid "Bescherm tegen overschrijving"
+msgstr "Protect against overwrite"
+
+msgid "Sync beschermd"
+msgstr "Sync protected"
+
+msgid "Download logs"
+msgstr "Download logs"
+
+msgid "Webhook secret"
+msgstr "Webhook secret"
+
+msgid "Geheim voor webhook authenticatie. Laat leeg om webhooks uit te schakelen."
+msgstr "Secret for webhook authentication. Leave empty to disable webhooks."
+

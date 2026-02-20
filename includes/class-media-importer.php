@@ -116,6 +116,8 @@ class Skwirrel_WC_Sync_Media_Importer {
         update_post_meta($id, self::META_SKWIRREL_URL, $url);
         update_post_meta($id, self::META_SKWIRREL_HASH, $hash);
 
+        do_action('skwirrel_wc_sync_after_image_import', $id, $url);
+
         $this->logger->debug('Imported image', ['url' => $url, 'attachment_id' => $id]);
         return $id;
     }

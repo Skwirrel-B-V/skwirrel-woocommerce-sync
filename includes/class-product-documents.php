@@ -62,6 +62,7 @@ class Skwirrel_WC_Sync_Product_Documents {
 
     /**
      * Render tab content on product single page.
+     * Uses wc_get_template() so themes can override the template.
      */
     public function render_product_tab(): void {
         global $product;
@@ -72,23 +73,12 @@ class Skwirrel_WC_Sync_Product_Documents {
         if (empty($docs)) {
             return;
         }
-        ?>
-        <div class="skwirrel-product-documents">
-            <ul class="skwirrel-document-list">
-                <?php foreach ($docs as $doc) : ?>
-                    <li class="skwirrel-document-item">
-                        <a href="<?php echo esc_url($doc['url']); ?>" target="_blank" rel="noopener noreferrer" class="skwirrel-document-link">
-                            <span class="skwirrel-document-icon"><?php echo $this->get_file_icon($doc['url']); ?></span>
-                            <span class="skwirrel-document-name"><?php echo esc_html($doc['name']); ?></span>
-                            <?php if (!empty($doc['type_label'])) : ?>
-                                <span class="skwirrel-document-type">(<?php echo esc_html($doc['type_label']); ?>)</span>
-                            <?php endif; ?>
-                        </a>
-                    </li>
-                <?php endforeach; ?>
-            </ul>
-        </div>
-        <?php
+        wc_get_template(
+            'single-product/tabs/skwirrel-documents.php',
+            ['documents' => $docs],
+            '',
+            SKWIRREL_WC_SYNC_PLUGIN_DIR . 'templates/'
+        );
     }
 
     /**

@@ -206,10 +206,10 @@ class Skwirrel_WC_Sync_Product_Mapper {
     }
 
     /**
-     * Get regular price. Same as get_price for now (no sale mapping).
+     * Get regular price. Uses gross_price when sale applies, otherwise net_price.
      */
     public function get_regular_price(array $product): ?float {
-        return $this->get_price($product);
+        return $this->get_regular_price_with_sale($product) ?? $this->get_price($product);
     }
 
     /**
@@ -658,7 +658,7 @@ class Skwirrel_WC_Sync_Product_Mapper {
         }
         $isLogical = ($type === 'L' || strtoupper((string) $type) === 'LOGICAL' || empty($type));
         if ($isLogical && array_key_exists('logical_value', $feat) && $feat['logical_value'] !== null) {
-            return $feat['logical_value'] ? 'Ja' : 'Nee';
+            return $feat['logical_value'] ? __('Ja', 'skwirrel-wc-sync') : __('Nee', 'skwirrel-wc-sync');
         }
         if ($type === 'R' && ($feat['range_min'] !== null || $feat['range_max'] !== null)) {
             $min = $feat['range_min'] ?? '';
@@ -835,6 +835,208 @@ class Skwirrel_WC_Sync_Product_Mapper {
     public function get_category_names(array $product): array {
         $categories = $this->get_categories($product);
         return array_values(array_unique(array_column($categories, 'name')));
+    }
+
+    /**
+     * Get stock data from trade items.
+     * Looks for stock_quantity, quantity_available, available_quantity, stock fields.
+     *
+     * @return array{manage: bool, quantity: ?int, backorders: string, status: string}
+     */
+    public function get_stock_data(array $product): array {
+        $opts = get_option('skwirrel_wc_sync_settings', []);
+        if (($opts['stock_management'] ?? 'off') !== 'on') {
+            return ['manage' => false, 'quantity' => null, 'backorders' => 'no', 'status' => 'instock'];
+        }
+
+        $trade_items = $product['_trade_items'] ?? [];
+        $stock_fields = ['stock_quantity', 'quantity_available', 'available_quantity', 'stock'];
+
+        foreach ($trade_items as $ti) {
+            foreach ($stock_fields as $field) {
+                if (isset($ti[$field]) && is_numeric($ti[$field])) {
+                    $qty = (int) $ti[$field];
+                    $this->logger->verbose('Stock field found', [
+                        'product' => $product['internal_product_code'] ?? $product['product_id'] ?? '?',
+                        'field' => $field,
+                        'quantity' => $qty,
+                    ]);
+                    return [
+                        'manage' => true,
+                        'quantity' => $qty,
+                        'backorders' => 'no',
+                        'status' => $qty > 0 ? 'instock' : 'outofstock',
+                    ];
+                }
+            }
+        }
+
+        return ['manage' => false, 'quantity' => null, 'backorders' => 'no', 'status' => 'instock'];
+    }
+
+    /**
+     * Get physical data (weight, dimensions) from first trade item.
+     *
+     * @return array{weight: ?float, length: ?float, width: ?float, height: ?float}
+     */
+    public function get_physical_data(array $product): array {
+        $result = ['weight' => null, 'length' => null, 'width' => null, 'height' => null];
+        $trade_items = $product['_trade_items'] ?? [];
+        if (empty($trade_items)) {
+            return $result;
+        }
+
+        $ti = $trade_items[0];
+
+        // Weight: prefer gross_weight, then net_weight, then weight
+        foreach (['gross_weight', 'net_weight', 'weight'] as $field) {
+            if (isset($ti[$field]) && is_numeric($ti[$field]) && (float) $ti[$field] > 0) {
+                $result['weight'] = (float) $ti[$field];
+                break;
+            }
+        }
+
+        // Dimensions
+        foreach (['length', 'width', 'height'] as $dim) {
+            if (isset($ti[$dim]) && is_numeric($ti[$dim]) && (float) $ti[$dim] > 0) {
+                $result[$dim] = (float) $ti[$dim];
+            }
+        }
+        // depth as height fallback
+        if ($result['height'] === null && isset($ti['depth']) && is_numeric($ti['depth']) && (float) $ti['depth'] > 0) {
+            $result['height'] = (float) $ti['depth'];
+        }
+
+        return $result;
+    }
+
+    /**
+     * Get sale price from trade item discounts or price comparison.
+     * Returns sale price as float, or null if no sale.
+     */
+    public function get_sale_price(array $product): ?float {
+        $trade_items = $product['_trade_items'] ?? [];
+        foreach ($trade_items as $ti) {
+            // Check discounts
+            $discounts = $ti['_trade_item_discounts'] ?? [];
+            foreach ($discounts as $d) {
+                foreach (['discount_price', 'sale_price', 'promotional_price'] as $field) {
+                    if (isset($d[$field]) && is_numeric($d[$field]) && (float) $d[$field] > 0) {
+                        return (float) $d[$field];
+                    }
+                }
+            }
+
+            // Check if gross > net (gross = regular, net = sale)
+            $prices = $ti['_trade_item_prices'] ?? [];
+            foreach ($prices as $p) {
+                if (!empty($p['price_on_request'])) {
+                    continue;
+                }
+                $gross = $p['gross_price'] ?? null;
+                $net = $p['net_price'] ?? null;
+                if ($gross !== null && $net !== null && (float) $gross > (float) $net && (float) $net > 0) {
+                    return (float) $net;
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Get regular price, considering gross_price as regular when sale applies.
+     */
+    public function get_regular_price_with_sale(array $product): ?float {
+        $trade_items = $product['_trade_items'] ?? [];
+        foreach ($trade_items as $ti) {
+            $prices = $ti['_trade_item_prices'] ?? [];
+            foreach ($prices as $p) {
+                if (!empty($p['price_on_request'])) {
+                    return null;
+                }
+                $gross = $p['gross_price'] ?? null;
+                $net = $p['net_price'] ?? null;
+                // If gross > net, gross is the regular price
+                if ($gross !== null && $net !== null && (float) $gross > (float) $net) {
+                    return (float) $gross;
+                }
+                // Otherwise return net as regular
+                if ($net !== null && (float) $net >= 0) {
+                    return (float) $net;
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Get product tags from API data.
+     * Looks for _tags, _keywords, _product_tags. Falls back to brand_name.
+     *
+     * @return string[]
+     */
+    public function get_tags(array $product): array {
+        $tag_fields = ['_tags', '_keywords', '_product_tags'];
+        foreach ($tag_fields as $field) {
+            $raw = $product[$field] ?? null;
+            if (!empty($raw)) {
+                if (is_string($raw)) {
+                    return array_filter(array_map('trim', explode(',', $raw)));
+                }
+                if (is_array($raw)) {
+                    $tags = [];
+                    foreach ($raw as $t) {
+                        if (is_string($t) && trim($t) !== '') {
+                            $tags[] = trim($t);
+                        } elseif (is_array($t) && !empty($t['name'])) {
+                            $tags[] = $t['name'];
+                        }
+                    }
+                    if (!empty($tags)) {
+                        return $tags;
+                    }
+                }
+            }
+        }
+        // Fallback: use brand_name
+        $brand = $product['brand_name'] ?? '';
+        if ($brand !== '') {
+            return [$brand];
+        }
+        return [];
+    }
+
+    /**
+     * Get related product SKUs from API data.
+     *
+     * @return array{upsell: string[], cross_sell: string[]}
+     */
+    public function get_related_skus(array $product): array {
+        $result = ['upsell' => [], 'cross_sell' => []];
+
+        // Related as upsells
+        $related = $product['_related_products'] ?? $product['_alternatives'] ?? [];
+        if (is_array($related)) {
+            foreach ($related as $r) {
+                $sku = is_array($r) ? ($r['internal_product_code'] ?? $r['sku'] ?? '') : (string) $r;
+                if ($sku !== '') {
+                    $result['upsell'][] = $sku;
+                }
+            }
+        }
+
+        // Accessories as cross-sells
+        $accessories = $product['_accessories'] ?? [];
+        if (is_array($accessories)) {
+            foreach ($accessories as $a) {
+                $sku = is_array($a) ? ($a['internal_product_code'] ?? $a['sku'] ?? '') : (string) $a;
+                if ($sku !== '') {
+                    $result['cross_sell'][] = $sku;
+                }
+            }
+        }
+
+        return $result;
     }
 
     public function get_external_id_meta_key(): string {

@@ -99,6 +99,21 @@ class Skwirrel_WC_Sync_JsonRpc_Client {
                 break;
             }
 
+            // Retryable HTTP status codes
+            if (in_array($code, [429, 502, 503, 504], true)) {
+                $last_error = [
+                    'code' => $code,
+                    'message' => 'HTTP ' . $code . ' ' . wp_remote_retrieve_response_message($response),
+                ];
+                $this->logger->warning('Retryable HTTP error', ['code' => $code, 'attempt' => $attempt + 1]);
+                $attempt++;
+                if ($attempt <= $this->retries) {
+                    $retry_after = (int) wp_remote_retrieve_header($response, 'retry-after');
+                    usleep(max(500000 * $attempt, $retry_after * 1000000));
+                }
+                continue;
+            }
+
             if ($code >= 400) {
                 $last_error = [
                     'code' => $code,

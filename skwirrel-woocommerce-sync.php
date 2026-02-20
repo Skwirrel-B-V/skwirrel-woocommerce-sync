@@ -37,7 +37,7 @@ add_action('plugins_loaded', function (): void {
 
 add_action('before_woocommerce_init', function (): void {
     if (class_exists(\Automattic\WooCommerce\Utilities\FeaturesUtil::class)) {
-        \Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility('custom_order_tables', __FILE__, false);
+        \Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility('custom_order_tables', __FILE__, true);
     }
 });
 
@@ -56,6 +56,14 @@ register_activation_hook(__FILE__, function (): void {
 
     require_once SKWIRREL_WC_SYNC_PLUGIN_DIR . 'includes/class-action-scheduler.php';
     Skwirrel_WC_Sync_Action_Scheduler::instance()->schedule();
+});
+
+register_deactivation_hook(__FILE__, function (): void {
+    if (function_exists('as_unschedule_all_actions')) {
+        as_unschedule_all_actions('skwirrel_wc_sync_run', [], 'skwirrel-wc-sync');
+    }
+    wp_clear_scheduled_hook('skwirrel_wc_sync_run');
+    delete_transient('skwirrel_wc_sync_running');
 });
 
 /**
@@ -96,6 +104,8 @@ final class Skwirrel_WC_Sync_Plugin {
         require_once SKWIRREL_WC_SYNC_PLUGIN_DIR . 'includes/class-admin-settings.php';
         require_once SKWIRREL_WC_SYNC_PLUGIN_DIR . 'includes/class-product-documents.php';
         require_once SKWIRREL_WC_SYNC_PLUGIN_DIR . 'includes/class-variation-attributes-fix.php';
+        require_once SKWIRREL_WC_SYNC_PLUGIN_DIR . 'includes/class-admin-columns.php';
+        require_once SKWIRREL_WC_SYNC_PLUGIN_DIR . 'includes/class-rest-api.php';
     }
 
     private function register_hooks(): void {
@@ -103,6 +113,8 @@ final class Skwirrel_WC_Sync_Plugin {
         Skwirrel_WC_Sync_Action_Scheduler::instance();
         Skwirrel_WC_Sync_Product_Documents::instance();
         Skwirrel_WC_Sync_Variation_Attributes_Fix::init();
+        Skwirrel_WC_Sync_Admin_Columns::instance();
+        Skwirrel_WC_Sync_Rest_Api::instance();
     }
 
     private function woocommerce_missing_notice(): void {
