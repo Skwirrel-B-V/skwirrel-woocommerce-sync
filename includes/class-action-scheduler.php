@@ -63,7 +63,13 @@ class Skwirrel_WC_Sync_Action_Scheduler {
      * @param array $args Optional. ['delta' => bool] - use delta sync (default true for scheduled).
      */
     public function run_scheduled_sync(array $args = []): void {
-        $delta = $args['delta'] ?? true;
+        // Als een Skwirrel-product in WC is verwijderd, forceer volledige sync
+        $force_full = get_option('skwirrel_wc_sync_force_full_sync', false);
+        if ($force_full) {
+            delete_option('skwirrel_wc_sync_force_full_sync');
+        }
+
+        $delta = $force_full ? false : ($args['delta'] ?? true);
         $service = new Skwirrel_WC_Sync_Service();
         $service->run_sync($delta);
     }
