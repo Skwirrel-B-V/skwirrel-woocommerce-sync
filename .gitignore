@@ -19,6 +19,10 @@ composer.lock
 # Local config overrides
 phpstan.neon
 .phpcs.xml
+phpunit.xml
+
+# PHPUnit cache
+.phpunit.cache/
 
 # Node (if ever added)
 node_modules/
