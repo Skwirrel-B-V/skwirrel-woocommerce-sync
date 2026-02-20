@@ -44,8 +44,6 @@ class Skwirrel_WC_Sync_Admin_Settings {
         add_action('admin_init', [$this, 'register_settings']);
         add_action('admin_post_skwirrel_wc_sync_test', [$this, 'handle_test_connection']);
         add_action('admin_post_skwirrel_wc_sync_run', [$this, 'handle_sync_now']);
-        add_action('admin_post_skwirrel_wc_sync_generate_rest_key', [$this, 'handle_generate_rest_key']);
-        add_action('admin_post_skwirrel_wc_sync_revoke_rest_key', [$this, 'handle_revoke_rest_key']);
         add_action('admin_enqueue_scripts', [$this, 'enqueue_assets']);
         add_action('wp_ajax_' . self::BG_SYNC_ACTION, [$this, 'handle_background_sync']);
         add_action('wp_ajax_nopriv_' . self::BG_SYNC_ACTION, [$this, 'handle_background_sync']);
@@ -218,39 +216,6 @@ class Skwirrel_WC_Sync_Admin_Settings {
         $service->run_sync(false);
 
         wp_die('', 200);
-    }
-
-    public function handle_generate_rest_key(): void {
-        if (!current_user_can('manage_woocommerce')) {
-            wp_die(esc_html__('Geen toegang.', 'skwirrel-wc-sync'));
-        }
-        check_admin_referer('skwirrel_wc_sync_generate_rest_key', '_wpnonce');
-
-        $key = Skwirrel_WC_Sync_Rest_Api::generate_rest_key();
-
-        // Sla de key tijdelijk op in een transient zodat we hem eenmalig kunnen tonen
-        set_transient('skwirrel_wc_sync_new_rest_key', $key, 60);
-
-        wp_safe_redirect(add_query_arg([
-            'page'     => self::PAGE_SLUG,
-            'rest_key' => 'generated',
-        ], admin_url('admin.php')));
-        exit;
-    }
-
-    public function handle_revoke_rest_key(): void {
-        if (!current_user_can('manage_woocommerce')) {
-            wp_die(esc_html__('Geen toegang.', 'skwirrel-wc-sync'));
-        }
-        check_admin_referer('skwirrel_wc_sync_revoke_rest_key', '_wpnonce');
-
-        Skwirrel_WC_Sync_Rest_Api::revoke_rest_key();
-
-        wp_safe_redirect(add_query_arg([
-            'page'     => self::PAGE_SLUG,
-            'rest_key' => 'revoked',
-        ], admin_url('admin.php')));
-        exit;
     }
 
     public function enqueue_assets(string $hook): void {
@@ -453,60 +418,6 @@ class Skwirrel_WC_Sync_Admin_Settings {
                     <a href="<?php echo esc_url($log_url); ?>" class="button" target="_blank"><?php esc_html_e('Bekijk logs', 'skwirrel-wc-sync'); ?></a>
                 <?php endif; ?>
             </p>
-
-            <hr />
-
-            <h2><?php esc_html_e('REST API (n8n / externe integraties)', 'skwirrel-wc-sync'); ?></h2>
-            <p class="description"><?php esc_html_e('Gebruik deze API key om de Skwirrel Sync REST API te benaderen vanuit n8n of andere externe tools.', 'skwirrel-wc-sync'); ?></p>
-
-            <?php
-            $rest_key = Skwirrel_WC_Sync_Rest_Api::get_rest_key();
-            $new_key  = get_transient('skwirrel_wc_sync_new_rest_key');
-            if ($new_key) {
-                delete_transient('skwirrel_wc_sync_new_rest_key');
-            }
-            ?>
-
-            <?php if ($new_key) : ?>
-                <div class="notice notice-warning" style="margin-left:0;">
-                    <p><strong><?php esc_html_e('Nieuwe API key gegenereerd. Kopieer deze nu — hij wordt niet opnieuw getoond:', 'skwirrel-wc-sync'); ?></strong></p>
-                    <p><code style="font-size: 14px; padding: 4px 8px; background: #fff; border: 1px solid #c3c4c7;"><?php echo esc_html($new_key); ?></code></p>
-                </div>
-            <?php endif; ?>
-
-            <?php if (isset($_GET['rest_key']) && $_GET['rest_key'] === 'revoked') : ?>
-                <div class="notice notice-info is-dismissible" style="margin-left:0;">
-                    <p><?php esc_html_e('REST API key is ingetrokken.', 'skwirrel-wc-sync'); ?></p>
-                </div>
-            <?php endif; ?>
-
-            <table class="form-table" role="presentation">
-                <tr>
-                    <th scope="row"><?php esc_html_e('API Key status', 'skwirrel-wc-sync'); ?></th>
-                    <td>
-                        <?php if ($rest_key !== '') : ?>
-                            <span style="color: #00a32a; font-weight: bold;"><?php esc_html_e('Actief', 'skwirrel-wc-sync'); ?></span>
-                            <code style="margin-left: 8px;"><?php echo esc_html(substr($rest_key, 0, 8) . '••••••••'); ?></code>
-                        <?php else : ?>
-                            <span style="color: #999;"><?php esc_html_e('Geen key ingesteld', 'skwirrel-wc-sync'); ?></span>
-                        <?php endif; ?>
-                    </td>
-                </tr>
-                <tr>
-                    <th scope="row"><?php esc_html_e('REST Endpoint', 'skwirrel-wc-sync'); ?></th>
-                    <td>
-                        <code><?php echo esc_html(rest_url('skwirrel-wc-sync/v1/')); ?></code>
-                    </td>
-                </tr>
-            </table>
-            <p>
-                <a href="<?php echo esc_url(wp_nonce_url(admin_url('admin-post.php?action=skwirrel_wc_sync_generate_rest_key'), 'skwirrel_wc_sync_generate_rest_key', '_wpnonce')); ?>" class="button" onclick="return <?php echo $rest_key !== '' ? "confirm('" . esc_js(__('Dit vervangt de huidige API key. Bestaande integraties stoppen. Doorgaan?', 'skwirrel-wc-sync')) . "')" : 'true'; ?>;"><?php echo $rest_key !== '' ? esc_html__('Nieuwe key genereren', 'skwirrel-wc-sync') : esc_html__('API key genereren', 'skwirrel-wc-sync'); ?></a>
-                <?php if ($rest_key !== '') : ?>
-                    <a href="<?php echo esc_url(wp_nonce_url(admin_url('admin-post.php?action=skwirrel_wc_sync_revoke_rest_key'), 'skwirrel_wc_sync_revoke_rest_key', '_wpnonce')); ?>" class="button" style="color: #d63638;" onclick="return confirm('<?php echo esc_js(__('Weet je zeker dat je de API key wilt intrekken?', 'skwirrel-wc-sync')); ?>');"><?php esc_html_e('Key intrekken', 'skwirrel-wc-sync'); ?></a>
-                <?php endif; ?>
-            </p>
-
-            <hr />
 
             <h2><?php esc_html_e('Variatie-attributen debuggen', 'skwirrel-wc-sync'); ?></h2>
             <p><?php esc_html_e('Als variaties "Any Colour" / "Any Number of cups" tonen in plaats van echte waarden:', 'skwirrel-wc-sync'); ?></p>

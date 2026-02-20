@@ -1,14 +1,14 @@
 {
-  "name": "n8n-nodes-skwirrel-wc-sync",
+  "name": "n8n-nodes-skwirrel",
   "version": "0.1.0",
-  "description": "n8n community node voor Skwirrel WooCommerce Sync — synchroniseer producten, trigger syncs en monitor resultaten.",
+  "description": "n8n community node voor het Skwirrel ERP/PIM systeem — haal producten, groepen en categorieën op via de JSON-RPC API.",
   "keywords": [
     "n8n-community-node-package",
     "skwirrel",
-    "woocommerce",
-    "sync",
     "erp",
-    "pim"
+    "pim",
+    "products",
+    "json-rpc"
   ],
   "license": "GPL-2.0-or-later",
   "homepage": "https://github.com/Skwirrel-B-V/skwirrel-woocommerce-sync",
@@ -22,7 +22,7 @@
   },
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc && gulp build:icons",
+    "build": "tsc && gulp",
     "dev": "tsc --watch",
     "lint": "eslint nodes credentials --ext .ts",
     "prepublishOnly": "npm run build"
@@ -33,10 +33,10 @@
   "n8n": {
     "n8nNodesApiVersion": 1,
     "credentials": [
-      "dist/credentials/SkwirrelWcSyncApi.credentials.js"
+      "dist/credentials/SkwirrelApi.credentials.js"
     ],
     "nodes": [
-      "dist/nodes/SkwirrelWcSync/SkwirrelWcSync.node.js"
+      "dist/nodes/Skwirrel/Skwirrel.node.js"
     ]
   },
   "devDependencies": {

@@ -1,6 +1,6 @@
-# n8n-nodes-skwirrel-wc-sync
+# n8n-nodes-skwirrel
 
-n8n community node voor **Skwirrel WooCommerce Sync** — synchroniseer producten van het Skwirrel ERP/PIM systeem naar WooCommerce, direct vanuit je n8n workflows.
+n8n community node voor het **Skwirrel ERP/PIM systeem**. Haal producten, gegroepeerde producten en categorieën op via de Skwirrel JSON-RPC 2.0 API, direct vanuit je n8n workflows.
 
 ## Installatie
 
@@ -8,10 +8,10 @@ n8n community node voor **Skwirrel WooCommerce Sync** — synchroniseer producte
 
 1. Ga naar **Settings → Community Nodes**
 2. Klik op **Install a community node**
-3. Voer in: `n8n-nodes-skwirrel-wc-sync`
+3. Voer in: `n8n-nodes-skwirrel`
 4. Klik op **Install**
 
-### Handmatig
+### Handmatig (development)
 
 ```bash
 cd ~/.n8n/custom
@@ -20,71 +20,111 @@ npm install /pad/naar/n8n-nodes-skwirrel
 
 ## Vereisten
 
-- WordPress site met de [Skwirrel WooCommerce Sync](https://github.com/Skwirrel-B-V/skwirrel-woocommerce-sync) plugin (v1.2+)
-- REST API key gegenereerd in **WooCommerce → Skwirrel Sync → REST API** sectie
+- Toegang tot een Skwirrel JSON-RPC endpoint (bijv. `https://xxx.skwirrel.eu/jsonrpc`)
+- Een API token (Bearer of Static)
 
 ## Configuratie
 
 ### Credentials aanmaken in n8n
 
 1. Ga naar **Credentials → New**
-2. Zoek op **Skwirrel WC Sync API**
+2. Zoek op **Skwirrel API**
 3. Vul in:
-   - **WordPress Site URL**: `https://jouw-webshop.nl`
-   - **Authenticatie methode**: REST API Key (aanbevolen) of WordPress Application Password
-   - **REST API Key**: De key uit de plugin instellingen
+   - **JSON-RPC Endpoint URL**: `https://xxx.skwirrel.eu/jsonrpc`
+   - **Authenticatie methode**: Bearer Token of Static Token
+   - **API Token**: je Skwirrel API token
+   - **Timeout**: 30 seconden (standaard)
 
-### WordPress REST API Key genereren
+## Beschikbare resources en operaties
 
-1. Ga in WordPress naar **WooCommerce → Skwirrel Sync**
-2. Scroll naar de sectie **REST API (n8n / externe integraties)**
-3. Klik op **API key genereren**
-4. Kopieer de key (wordt slechts éénmaal getoond)
+### Product
 
-## Beschikbare operaties
+| Operatie | API methode | Beschrijving |
+|----------|-------------|-------------|
+| **Ophalen** | `getProducts` | Haal alle producten op (gepagineerd) |
+| **Ophalen (filter)** | `getProductsByFilter` | Haal producten op gewijzigd na een datum |
 
-### Sync
+Opties per request:
+- Productstatus, vertalingen, bijlagen, handelsartikelen, prijzen
+- Categorieën, productgroepen, gegroepeerde producten
+- ETIM kenmerken en vertalingen
+- Taalcodes filter (bijv. `nl-NL,nl,en`)
+- Collectie IDs filter
+- **Alle pagina's ophalen**: automatische paginatie
 
-| Operatie | Beschrijving |
-|----------|-------------|
-| **Starten** | Start een volledige of delta synchronisatie |
-| **Status** | Controleer of er een sync actief is |
-| **Laatste resultaat** | Haal het resultaat van de laatste sync op |
-| **Geschiedenis** | Bekijk de sync geschiedenis (max 20 items) |
+### Grouped Product
+
+| Operatie | API methode | Beschrijving |
+|----------|-------------|-------------|
+| **Ophalen** | `getGroupedProducts` | Haal gegroepeerde/variabele producten op met ETIM features |
+
+Opties:
+- Producten meenemen
+- ETIM features meenemen
+- Collectie IDs filter
+- Automatische paginatie
 
 ### Verbinding
 
 | Operatie | Beschrijving |
 |----------|-------------|
-| **Testen** | Test de verbinding met de Skwirrel API |
-
-### Producten
-
-| Operatie | Beschrijving |
-|----------|-------------|
-| **Ophalen** | Haal gesynchroniseerde producten op (paginatie) |
-
-### Instellingen
-
-| Operatie | Beschrijving |
-|----------|-------------|
-| **Ophalen** | Haal de huidige plugin instellingen op |
+| **Testen** | Test of de Skwirrel API bereikbaar en geauthenticeerd is |
 
 ## Voorbeelden
 
-### Dagelijks sync rapport via e-mail
+### Producten ophalen en verwerken
 
-1. **Schedule Trigger** → elke dag om 08:00
-2. **Skwirrel WC Sync** → Sync: Starten (Volledig)
-3. **IF** → Check `success === true`
-4. **Gmail** → Stuur rapport met created/updated/failed aantallen
+```
+[Schedule Trigger] → [Skwirrel: Product → Ophalen] → [Set] → [Spreadsheet File]
+```
 
-### Sync na webhook van Skwirrel
+### Delta sync — alleen gewijzigde producten
 
-1. **Webhook** → Ontvang notificatie van Skwirrel
-2. **Skwirrel WC Sync** → Sync: Starten (Delta)
-3. **Skwirrel WC Sync** → Sync: Laatste resultaat
-4. **Slack** → Post resultaat in #webshop kanaal
+```
+[Schedule Trigger] → [Skwirrel: Product → Ophalen (filter)]
+                      updatedSince = {{$now.minus(1, 'day').toISO()}}
+                   → [IF: product heeft afbeeldingen?]
+                   → [HTTP Request: download afbeeldingen]
+```
+
+### Grouped products ophalen voor variabele producten
+
+```
+[Manual Trigger] → [Skwirrel: Grouped Product → Ophalen]
+                    returnAll = true
+                 → [Split In Batches]
+                 → [Function: verwerk ETIM features]
+```
+
+## API Details
+
+### Skwirrel JSON-RPC 2.0
+
+Alle communicatie gaat via JSON-RPC 2.0 naar het geconfigureerde endpoint.
+
+**Headers:**
+- `Content-Type: application/json`
+- `X-Skwirrel-Api-Version: 2`
+- `Authorization: Bearer {token}` (bearer auth) of `X-Skwirrel-Api-Token: {token}` (static auth)
+
+**Methoden:**
+
+| Methode | Beschrijving |
+|---------|-------------|
+| `getProducts` | Alle producten ophalen (gepagineerd, met include-opties) |
+| `getProductsByFilter` | Producten filteren (bijv. `updated_on >= datum`) |
+| `getGroupedProducts` | Gegroepeerde producten met ETIM variatie-assen |
+
+**Response structuur:**
+```json
+{
+  "products": [...],
+  "page": {
+    "current_page": 1,
+    "number_of_pages": 5
+  }
+}
+```
 
 ## Ontwikkeling
 
@@ -94,23 +134,11 @@ npm install
 npm run build
 ```
 
-Kopieer of link de `dist/` directory naar `~/.n8n/custom/node_modules/n8n-nodes-skwirrel-wc-sync/`.
-
-## REST API Endpoints
-
-De WordPress plugin registreert de volgende REST API endpoints:
-
-| Methode | Endpoint | Beschrijving |
-|---------|----------|-------------|
-| `POST` | `/wp-json/skwirrel-wc-sync/v1/sync` | Start sync (body: `{mode: "full"\|"delta"}`) |
-| `GET` | `/wp-json/skwirrel-wc-sync/v1/sync/status` | Sync status |
-| `GET` | `/wp-json/skwirrel-wc-sync/v1/sync/last-result` | Laatste resultaat |
-| `GET` | `/wp-json/skwirrel-wc-sync/v1/sync/history` | Geschiedenis |
-| `POST` | `/wp-json/skwirrel-wc-sync/v1/connection/test` | Test verbinding |
-| `GET` | `/wp-json/skwirrel-wc-sync/v1/settings` | Instellingen |
-| `GET` | `/wp-json/skwirrel-wc-sync/v1/products` | Producten |
-
-Authenticatie via `X-Skwirrel-Rest-Key` header of WordPress Basic Auth.
+Link voor lokaal testen:
+```bash
+cd ~/.n8n/custom
+npm link /pad/naar/n8n-nodes-skwirrel
+```
 
 ## Licentie
 

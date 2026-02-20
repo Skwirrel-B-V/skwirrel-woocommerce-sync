@@ -1,0 +1,17 @@
+{
+	"node": "n8n-nodes-skwirrel.skwirrel",
+	"nodeVersion": "1.0",
+	"codexVersion": "1.0",
+	"categories": ["Miscellaneous"],
+	"resources": {
+		"primaryDocumentation": [
+			{
+				"url": "https://github.com/Skwirrel-B-V/skwirrel-woocommerce-sync/tree/main/n8n-nodes-skwirrel"
+			}
+		]
+	},
+	"alias": ["skwirrel", "erp", "pim", "products", "sync", "json-rpc"],
+	"subcategories": {
+		"Miscellaneous": ["E-commerce"]
+	}
+}
