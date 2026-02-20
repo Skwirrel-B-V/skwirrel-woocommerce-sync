@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name: Skwirrel WooCommerce Sync
- * Plugin URI: https://github.com/example/skwirrel-woocommerce-sync
+ * Plugin URI: https://github.com/Skwirrel-B-V/skwirrel-woocommerce-sync
  * Description: Synchroniseert producten van Skwirrel JSON-RPC API naar WooCommerce.
  * Version: 1.1.1
  * Author: Skwirrel Sync

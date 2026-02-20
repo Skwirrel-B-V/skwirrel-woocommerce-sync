@@ -1,6 +1,6 @@
 # Changelog — Skwirrel WooCommerce Sync
 
-Alle noemenswaardige wijzigingen aan dit project worden in dit bestand gedocumenteerd.
+Alle wijzigingen in `feature\update` (1.1.0) ten opzichte van `main` (1.0.0).
 
 ---
 
