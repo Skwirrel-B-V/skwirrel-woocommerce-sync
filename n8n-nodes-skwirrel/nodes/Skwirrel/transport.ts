@@ -1,9 +1,9 @@
-import {
+import type {
 	IExecuteFunctions,
-	IRequestOptions,
+	IDataObject,
 	JsonObject,
-	NodeApiError,
 } from 'n8n-workflow';
+import { NodeApiError } from 'n8n-workflow';
 
 let requestId = 0;
 
@@ -17,7 +17,7 @@ export async function skwirrelJsonRpcCall(
 	ctx: IExecuteFunctions,
 	method: string,
 	params: Record<string, unknown>,
-): Promise<unknown> {
+): Promise<IDataObject> {
 	const credentials = await ctx.getCredentials('skwirrelApi');
 
 	const endpoint = (credentials.endpoint as string).replace(/\/+$/, '');
@@ -41,48 +41,63 @@ export async function skwirrelJsonRpcCall(
 	};
 
 	if (authType === 'bearer') {
-		headers['Authorization'] = `Bearer ${apiToken}`;
+		headers.Authorization = `Bearer ${apiToken}`;
 	} else {
 		headers['X-Skwirrel-Api-Token'] = apiToken;
 	}
 
-	const options: IRequestOptions = {
-		method: 'POST',
-		url: endpoint,
-		headers,
-		body,
-		json: true,
-		timeout,
-	};
-
-	let response: JsonObject;
+	let rawResponse: unknown;
 	try {
-		response = (await ctx.helpers.request(options)) as JsonObject;
+		rawResponse = await ctx.helpers.request({
+			method: 'POST',
+			url: endpoint,
+			headers,
+			body,
+			json: true,
+			timeout,
+		});
 	} catch (error) {
 		throw new NodeApiError(ctx.getNode(), error as JsonObject, {
 			message: 'Kon geen verbinding maken met de Skwirrel API',
 		});
 	}
 
-	// Als de response een string is (niet-geparsed JSON), parse het
-	if (typeof response === 'string') {
+	// Parse als het een string is
+	let response: IDataObject;
+	if (typeof rawResponse === 'string') {
 		try {
-			response = JSON.parse(response) as JsonObject;
+			response = JSON.parse(rawResponse) as IDataObject;
 		} catch {
 			throw new NodeApiError(ctx.getNode(), {} as JsonObject, {
 				message: 'Ongeldige JSON response van de Skwirrel API',
 			});
 		}
+	} else {
+		response = rawResponse as IDataObject;
 	}
 
-	// JSON-RPC error afhandelen
+	// JSON-RPC error
 	if (response.error) {
 		const err = response.error as JsonObject;
 		throw new NodeApiError(ctx.getNode(), err, {
-			message: (err.message as string) || 'Skwirrel API fout',
-			description: err.data ? JSON.stringify(err.data) : undefined,
+			message: (err['message'] as string) || 'Skwirrel API fout',
+			description: err['data'] ? JSON.stringify(err['data']) : undefined,
 		});
 	}
 
-	return response.result;
+	return (response.result ?? response) as IDataObject;
+}
+
+/**
+ * Parse een comma-separated string naar een string array.
+ */
+export function parseCommaList(value: string): string[] {
+	return value.split(',').map((s) => s.trim()).filter(Boolean);
+}
+
+/**
+ * Parse een comma-separated string naar een nummer array.
+ */
+export function parseNumericList(value: string): number[] {
+	return parseCommaList(value).map(Number).filter((n) => !isNaN(n));
 }
