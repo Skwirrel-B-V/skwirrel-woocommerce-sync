@@ -364,6 +364,11 @@ class Skwirrel_WC_Sync_Service {
 
     /**
      * Upsert single product. Returns 'created'|'updated'|'skipped'.
+     *
+     * Lookup chain (eerste match wint):
+     * 1. SKU → wc_get_product_id_by_sku() (snelste, WC index)
+     * 2. _skwirrel_external_id meta → find_by_external_id() (betrouwbare API key)
+     * 3. _skwirrel_product_id meta → find_by_skwirrel_product_id() (stabiele Skwirrel ID)
      */
     public function upsert_product(array $product): string {
         $key = $this->mapper->get_unique_key($product);
@@ -373,23 +378,69 @@ class Skwirrel_WC_Sync_Service {
         }
 
         $sku = $this->mapper->get_sku($product);
+        $skwirrel_product_id = $product['product_id'] ?? null;
+
+        // Stap 1: Zoek op SKU (snelste via WC index)
         $wc_id = wc_get_product_id_by_sku($sku);
+
+        // Als SKU matcht met een variable product, sla over — dit simple product
+        // mag niet het variable product overschrijven
         if ($wc_id) {
             $existing = wc_get_product($wc_id);
             if ($existing && $existing->is_type('variable')) {
-                $wc_id = 0;
-                $sku = 'SKW-' . ($product['product_id'] ?? uniqid());
-                $this->logger->verbose('SKU conflict with variable product, using unique SKU', [
-                    'original_sku' => $this->mapper->get_sku($product),
-                    'new_sku' => $sku,
+                $this->logger->verbose('SKU matcht met variable product, zoek verder', [
+                    'sku' => $sku,
+                    'wc_variable_id' => $wc_id,
                 ]);
+                $wc_id = 0; // Niet matchen, maar SKU NIET veranderen — we zoeken verder
             }
         }
+
+        // Stap 2: Zoek op _skwirrel_external_id meta
         if (!$wc_id) {
             $wc_id = $this->find_by_external_id($key);
         }
 
+        // Stap 3: Zoek op _skwirrel_product_id meta (meest stabiele identifier)
+        if (!$wc_id && $skwirrel_product_id !== null && $skwirrel_product_id !== '' && $skwirrel_product_id !== 0) {
+            $wc_id = $this->find_by_skwirrel_product_id((int) $skwirrel_product_id);
+            if ($wc_id) {
+                $this->logger->info('Product gevonden via _skwirrel_product_id fallback', [
+                    'skwirrel_product_id' => $skwirrel_product_id,
+                    'wc_id' => $wc_id,
+                ]);
+            }
+        }
+
+        // Voorkom dubbele SKU bij nieuw product: als een ander product al deze SKU heeft,
+        // genereer een unieke SKU met suffix
         $is_new = !$wc_id;
+        if ($is_new) {
+            $existing_sku_id = wc_get_product_id_by_sku($sku);
+            if ($existing_sku_id) {
+                $original_sku = $sku;
+                $sku = $sku . '-' . ($skwirrel_product_id ?? uniqid());
+                $this->logger->warning('Dubbele SKU voorkomen bij nieuw product', [
+                    'original_sku' => $original_sku,
+                    'new_sku' => $sku,
+                    'existing_wc_id' => $existing_sku_id,
+                    'skwirrel_product_id' => $skwirrel_product_id,
+                ]);
+            }
+        } else {
+            // Bestaand product: controleer of SKU is veranderd en geen conflict veroorzaakt
+            $existing_sku_id = wc_get_product_id_by_sku($sku);
+            if ($existing_sku_id && (int) $existing_sku_id !== (int) $wc_id) {
+                $original_sku = $sku;
+                $sku = $sku . '-' . ($skwirrel_product_id ?? uniqid());
+                $this->logger->warning('SKU conflict bij update, unieke SKU gegenereerd', [
+                    'original_sku' => $original_sku,
+                    'new_sku' => $sku,
+                    'wc_id' => $wc_id,
+                    'conflicting_wc_id' => $existing_sku_id,
+                ]);
+            }
+        }
 
         $this->logger->verbose('Upsert product', [
             'product' => $product['internal_product_code'] ?? $product['product_id'] ?? '?',
@@ -397,6 +448,7 @@ class Skwirrel_WC_Sync_Service {
             'key' => $key,
             'wc_id' => $wc_id,
             'is_new' => $is_new,
+            'lookup_chain' => $is_new ? 'geen match (nieuw)' : 'gevonden',
         ]);
 
         if ($is_new) {
@@ -405,6 +457,15 @@ class Skwirrel_WC_Sync_Service {
             $wc_product = wc_get_product($wc_id);
             if (!$wc_product) {
                 $this->logger->warning('WC product not found', ['wc_id' => $wc_id]);
+                return 'skipped';
+            }
+            // Bestaand product dat variable is mag niet overschreven worden als simple
+            if ($wc_product->is_type('variable')) {
+                $this->logger->warning('Bestaand product is variable, kan niet overschrijven als simple', [
+                    'wc_id' => $wc_id,
+                    'sku' => $sku,
+                    'skwirrel_product_id' => $skwirrel_product_id,
+                ]);
                 return 'skipped';
             }
         }
@@ -1290,7 +1351,12 @@ class Skwirrel_WC_Sync_Service {
         global $wpdb;
         $meta_key = $this->mapper->get_product_id_meta_key();
         $id = $wpdb->get_var($wpdb->prepare(
-            "SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key = %s AND meta_value = %s LIMIT 1",
+            "SELECT pm.post_id FROM {$wpdb->postmeta} pm
+             INNER JOIN {$wpdb->posts} p ON pm.post_id = p.ID
+                 AND p.post_type IN ('product', 'product_variation')
+                 AND p.post_status NOT IN ('trash', 'auto-draft')
+             WHERE pm.meta_key = %s AND pm.meta_value = %s
+             LIMIT 1",
             $meta_key,
             (string) $product_id
         ));
@@ -1359,7 +1425,12 @@ class Skwirrel_WC_Sync_Service {
         global $wpdb;
         $meta_key = $this->mapper->get_external_id_meta_key();
         $id = $wpdb->get_var($wpdb->prepare(
-            "SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key = %s AND meta_value = %s LIMIT 1",
+            "SELECT pm.post_id FROM {$wpdb->postmeta} pm
+             INNER JOIN {$wpdb->posts} p ON pm.post_id = p.ID
+                 AND p.post_type IN ('product', 'product_variation')
+                 AND p.post_status NOT IN ('trash', 'auto-draft')
+             WHERE pm.meta_key = %s AND pm.meta_value = %s
+             LIMIT 1",
             $meta_key,
             $key
         ));
