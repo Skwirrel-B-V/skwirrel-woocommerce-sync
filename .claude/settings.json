@@ -1,0 +1,19 @@
+{
+    "permissions": {
+        "allow": [
+            "Bash(php *)",
+            "Bash(composer *)",
+            "Bash(vendor/bin/phpunit *)",
+            "Bash(vendor/bin/phpstan *)",
+            "Bash(vendor/bin/phpcs *)",
+            "Bash(vendor/bin/phpcbf *)",
+            "Bash(git *)",
+            "Bash(ls *)",
+            "Bash(mkdir *)"
+        ],
+        "deny": [
+            "Bash(rm -rf *)",
+            "Bash(wp db *)"
+        ]
+    }
+}
