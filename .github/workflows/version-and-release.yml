@@ -149,12 +149,17 @@ ${CHANGES}
           # Update version constant
           sed -i "s/define('SKWIRREL_WC_SYNC_VERSION', '.*');/define('SKWIRREL_WC_SYNC_VERSION', '${VERSION}');/" "$PLUGIN_FILE"
 
+          # Update Stable tag in readme.txt
+          if [ -f readme.txt ]; then
+            sed -i "s/^Stable tag: .*/Stable tag: ${VERSION}/" readme.txt
+          fi
+
       - name: Commit version changes
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           TAG="${{ steps.version.outputs.tag }}"
 
-          git add CHANGELOG.md skwirrel-woocommerce-sync.php
+          git add CHANGELOG.md skwirrel-woocommerce-sync.php readme.txt
           git commit -m "chore: release ${VERSION} [skip ci]" || echo "No changes to commit"
           git tag -a "$TAG" -m "Release ${VERSION}"
           git push origin HEAD
@@ -169,3 +174,23 @@ ${CHANGES}
           prerelease: ${{ steps.version.outputs.branch != 'main' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Deploy to WordPress.org — only on main branch releases
+  deploy-to-wordpress:
+    needs: version-and-release
+    if: github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, '[skip ci]')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Deploy to WordPress.org
+        uses: 10up/action-wordpress-plugin-deploy@stable
+        env:
+          SVN_USERNAME: ${{ secrets.SVN_USERNAME }}
+          SVN_PASSWORD: ${{ secrets.SVN_PASSWORD }}
+          SLUG: skwirrel-woocommerce-sync
