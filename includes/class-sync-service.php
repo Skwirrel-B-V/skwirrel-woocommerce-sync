@@ -1287,10 +1287,10 @@ class Skwirrel_WC_Sync_Service {
             "[%s] SKU=%s | etim_codes=%s | etim_values_found=%s | has__etim=%s | variation_attrs=%s\n",
             gmdate('Y-m-d H:i:s'),
             $sku,
-            json_encode(array_column($etim_codes, 'code')),
-            json_encode(array_keys($etim_values)),
+            wp_json_encode(array_column($etim_codes, 'code')),
+            wp_json_encode(array_keys($etim_values)),
             isset($product['_etim']) ? 'yes' : 'no',
-            json_encode($variation_attrs)
+            wp_json_encode($variation_attrs)
         );
         file_put_contents($file, $line, FILE_APPEND | LOCK_EX);
     }

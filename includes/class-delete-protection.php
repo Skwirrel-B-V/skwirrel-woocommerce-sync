@@ -107,7 +107,7 @@ class Skwirrel_WC_Sync_Delete_Protection {
         $synced_str = $synced_at ? wp_date(get_option('date_format') . ' ' . get_option('time_format'), (int) $synced_at) : '';
 
         ?>
-        <div class="notice notice-warning skwirrel-sync-delete-warning">
+        <div class="notice notice-warning is-dismissible skwirrel-sync-delete-warning">
             <p>
                 <strong>Skwirrel Sync:</strong>
                 <?php esc_html_e('Dit product wordt beheerd door Skwirrel. Wijzigingen aan productgegevens dienen in Skwirrel te worden gemaakt.', 'skwirrel-wc-sync'); ?>

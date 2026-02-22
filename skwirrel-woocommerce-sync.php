@@ -111,7 +111,7 @@ final class Skwirrel_WC_Sync_Plugin {
         $install_url = admin_url('plugin-install.php?s=woocommerce&tab=search&type=term');
         $activate_url = admin_url('plugins.php');
         ?>
-        <div class="notice notice-error">
+        <div class="notice notice-error is-dismissible">
             <p><strong>Skwirrel WooCommerce Sync</strong></p>
             <p><?php
                 printf(
