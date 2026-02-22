@@ -1,0 +1,11 @@
+/.git
+/.github
+/.distignore
+/.gitignore
+/CLAUDE.md
+/ASSUMPTIONS.md
+/CHANGELOG.md
+/composer.json
+/composer.lock
+/vendor
+/debug-variations.php

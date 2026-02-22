@@ -1,6 +1,10 @@
 # Changelog — Skwirrel WooCommerce Sync
 
-Alle wijzigingen in `feature\update` (1.1.0) ten opzichte van `main` (1.0.0).
+All notable changes to Skwirrel WooCommerce Sync will be documented in this file.
+
+## [1.1.2] - 2026-02-22
+
+- Bump version to 1.1.2
 
 ---
 
