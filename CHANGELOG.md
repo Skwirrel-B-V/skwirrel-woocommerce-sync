@@ -2,6 +2,10 @@
 
 All notable changes to Skwirrel PIM Sync will be documented in this file.
 
+## [1.0.5] - 2026-02-23
+
+- Bump version to 1.2.3 and add `phpcs:ignore` comments to address coding standard violations. (52c7502)
+
 ## [1.2.3] - 2026-02-23
 
 - WordPress Plugin Check compliance: fix translators comments, ordered placeholders, escape output
