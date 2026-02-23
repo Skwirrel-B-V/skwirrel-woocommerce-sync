@@ -255,12 +255,11 @@ class Skwirrel_WC_Sync_Media_Importer {
     }
 
     private function find_attachment_by_hash(string $hash): int {
-        // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key, WordPress.DB.SlowDBQuery.slow_db_query_meta_value
         $posts = get_posts([
             'post_type' => 'attachment',
             'post_status' => 'any',
-            'meta_key' => self::META_SKWIRREL_HASH,
-            'meta_value' => $hash,
+            'meta_key' => self::META_SKWIRREL_HASH, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+            'meta_value' => $hash, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
             'posts_per_page' => 1,
             'fields' => 'ids',
         ]);

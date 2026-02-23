@@ -204,6 +204,7 @@ class Skwirrel_WC_Sync_Admin_Settings {
     }
 
     public function handle_background_sync(): void {
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- uses transient-based token instead of nonce
         $token = isset($_REQUEST['token']) ? sanitize_text_field(wp_unslash($_REQUEST['token'])) : '';
         if (empty($token) || strlen($token) !== 32 || !ctype_xdigit($token)) {
             wp_die('Invalid request', 403);

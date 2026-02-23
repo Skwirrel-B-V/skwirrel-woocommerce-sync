@@ -2,6 +2,13 @@
 
 All notable changes to Skwirrel PIM Sync will be documented in this file.
 
+## [1.2.3] - 2026-02-23
+
+- WordPress Plugin Check compliance: fix translators comments, ordered placeholders, escape output
+- WordPress Plugin Check compliance: add phpcs:ignore for direct DB queries, non-prefixed WooCommerce globals, and nonce verification
+- WordPress Plugin Check compliance: use WordPress alternative functions (wp_parse_url, wp_delete_file, wp_is_writable)
+- Translate readme.txt to English (WordPress.org requirement)
+
 ## [1.2.2] - 2026-02-23
 
 - Update text domain references to `skwirrel-pim-sync` in preparation for rebranding. (12f0989)

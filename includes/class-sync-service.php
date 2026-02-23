@@ -1272,9 +1272,9 @@ class Skwirrel_WC_Sync_Service {
         // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound -- WooCommerce global
         global $wc_product_attributes;
         if (!is_array($wc_product_attributes)) {
-            $wc_product_attributes = [];
+            $wc_product_attributes = []; // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound
         }
-        $wc_product_attributes[$taxonomy] = (object) [
+        $wc_product_attributes[$taxonomy] = (object) [ // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound
             'attribute_id' => wc_attribute_taxonomy_id_by_name($slug),
             'attribute_name' => $slug,
             'attribute_label' => $label,
