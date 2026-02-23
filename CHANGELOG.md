@@ -2,6 +2,11 @@
 
 All notable changes to Skwirrel PIM Sync will be documented in this file.
 
+## [1.0.4] - 2026-02-23
+
+- Bump version to 1.2.2 in preparation for release. (b68e9c8)
+- Bump version to 1.2.2 in preparation for release. (5fb7ec0)
+
 ## [1.2.2] - 2026-02-23
 
 - Update text domain references to `skwirrel-pim-sync` in preparation for rebranding. (12f0989)
