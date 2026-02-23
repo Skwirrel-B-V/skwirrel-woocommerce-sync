@@ -2,6 +2,10 @@
 
 All notable changes to Skwirrel PIM Sync will be documented in this file.
 
+## [1.0.2] - 2026-02-23
+
+- Update text domain and constants to reflect rebranding to "Skwirrel PIM Sync", and bump version to 1.2.0. (4576f63)
+
 ## [1.0.1] - 2026-02-23
 
 - Rename plugin to **Skwirrel PIM Sync** across all files and references. (58fc67f)
