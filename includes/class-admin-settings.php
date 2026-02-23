@@ -242,7 +242,7 @@ class Skwirrel_WC_Sync_Admin_Settings {
 
         ?>
         <div class="wrap skwirrel-sync-wrap">
-            <h1><?php esc_html_e('Skwirrel WooCommerce Sync', 'skwirrel-wc-sync'); ?></h1>
+            <h1><?php esc_html_e('Skwirrel PIM Sync', 'skwirrel-wc-sync'); ?></h1>
 
             <form method="post" action="options.php" id="skwirrel-sync-settings-form">
                 <?php wp_nonce_field('options-options'); ?>

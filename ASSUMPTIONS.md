@@ -1,4 +1,4 @@
-# Assumpties Skwirrel WooCommerce Sync
+# Assumpties Skwirrel PIM Sync
 
 Dit document beschrijft aannames die gemaakt zijn waar de context (./context) geen duidelijke specificatie biedt.
 

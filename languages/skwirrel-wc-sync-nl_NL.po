@@ -1,9 +1,9 @@
-# Translation file for Skwirrel WooCommerce Sync - Nederlands (Nederland)
+# Translation file for Skwirrel PIM Sync - Nederlands (Nederland)
 # Copyright (C) 2024–2026 Skwirrel Sync
 # This file is distributed under the GPL v2 or later.
 msgid ""
 msgstr ""
-"Project-Id-Version: Skwirrel WooCommerce Sync 1.0.0\n"
+"Project-Id-Version: Skwirrel PIM Sync 1.0.0\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-02-19 20:28+0000\n"
 "PO-Revision-Date: 2026-02-19 20:28+0000\n"
@@ -13,11 +13,11 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"X-Generator: Skwirrel WooCommerce Sync 1.0.0\n"
+"X-Generator: Skwirrel PIM Sync 1.0.0\n"
 "X-Domain: skwirrel-wc-sync\n"
 
-msgid "Skwirrel WooCommerce Sync vereist WooCommerce om te functioneren."
-msgstr "Skwirrel WooCommerce Sync vereist WooCommerce om te functioneren."
+msgid "Skwirrel PIM Sync vereist WooCommerce om te functioneren."
+msgstr "Skwirrel PIM Sync vereist WooCommerce om te functioneren."
 
 msgid "WooCommerce is vereist. <a href=\"%s\">Installeer WooCommerce</a> of <a href=\"%s\">activeer WooCommerce</a>."
 msgstr "WooCommerce is vereist. <a href=\"%s\">Installeer WooCommerce</a> of <a href=\"%s\">activeer WooCommerce</a>."
@@ -28,8 +28,8 @@ msgstr "Skwirrel Sync"
 msgid "Geen toegang."
 msgstr "Geen toegang."
 
-msgid "Skwirrel WooCommerce Sync"
-msgstr "Skwirrel WooCommerce Sync"
+msgid "Skwirrel PIM Sync"
+msgstr "Skwirrel PIM Sync"
 
 msgid "JSON-RPC Endpoint URL"
 msgstr "JSON-RPC Endpoint URL"

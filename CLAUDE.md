@@ -1,4 +1,4 @@
-# CLAUDE.md — Skwirrel WooCommerce Sync
+# CLAUDE.md — Skwirrel PIM Sync
 
 ## Project Overview
 
@@ -14,7 +14,7 @@ Singleton-based class architecture without Composer autoloading — all classes 
 
 | Class | File | Role |
 |-------|------|------|
-| `Skwirrel_WC_Sync_Plugin` | `skwirrel-woocommerce-sync.php` | Bootstrap, dependency loading, hook registration |
+| `Skwirrel_WC_Sync_Plugin` | `skwirrel-pim-wp-sync.php` | Bootstrap, dependency loading, hook registration |
 | `Skwirrel_WC_Sync_Admin_Settings` | `includes/class-admin-settings.php` | Admin UI, settings persistence, manual sync trigger |
 | `Skwirrel_WC_Sync_Service` | `includes/class-sync-service.php` | Core sync orchestrator — fetches, maps, upserts products |
 | `Skwirrel_WC_Sync_Product_Mapper` | `includes/class-product-mapper.php` | Translates Skwirrel API data to WooCommerce field values |

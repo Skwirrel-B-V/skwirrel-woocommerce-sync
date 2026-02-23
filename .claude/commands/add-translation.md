@@ -1,4 +1,4 @@
-Voeg een vertaalstring toe aan alle .po bestanden van de Skwirrel WooCommerce Sync plugin.
+Voeg een vertaalstring toe aan alle .po bestanden van de Skwirrel PIM Sync plugin.
 
 Vraag de gebruiker om:
 - De originele string (msgid, Nederlands)

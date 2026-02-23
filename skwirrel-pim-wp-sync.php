@@ -1,8 +1,8 @@
 <?php
 /**
- * Plugin Name: Skwirrel WooCommerce Sync
- * Plugin URI: https://github.com/Skwirrel-B-V/skwirrel-woocommerce-sync
- * Description: Synchroniseert producten van Skwirrel JSON-RPC API naar WooCommerce.
+ * Plugin Name: Skwirrel PIM Sync
+ * Plugin URI: https://github.com/Skwirrel-B-V/skwirrel-pim-wp-sync
+ * Description: Sync plugin for Skwirrel PIM via Skwirrel JSON-RPC API to WooCommerce.
  * Version: 1.1.2
  * Author: Skwirrel Sync
  * Author URI: https://skwirrel.eu
@@ -46,7 +46,7 @@ register_activation_hook(__FILE__, function (): void {
     if (!class_exists('WooCommerce') && !in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_option('active_plugins', [])), true)) {
         deactivate_plugins(plugin_basename(__FILE__));
         wp_die(
-            esc_html__('Skwirrel WooCommerce Sync vereist WooCommerce om te functioneren.', 'skwirrel-wc-sync')
+            esc_html__('Skwirrel PIM Sync vereist WooCommerce om te functioneren.', 'skwirrel-wc-sync')
             . ' <a href="' . esc_url(admin_url('plugin-install.php?s=woocommerce&tab=search&type=term')) . '">'
             . esc_html__('Installeer WooCommerce', 'skwirrel-wc-sync') . '</a>.',
             'Plugin Activation Error',
@@ -112,7 +112,7 @@ final class Skwirrel_WC_Sync_Plugin {
         $activate_url = admin_url('plugins.php');
         ?>
         <div class="notice notice-error is-dismissible">
-            <p><strong>Skwirrel WooCommerce Sync</strong></p>
+            <p><strong>Skwirrel PIM Sync</strong></p>
             <p><?php
                 printf(
                     /* translators: %1$s = install URL, %2$s = activate URL */

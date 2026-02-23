@@ -111,13 +111,8 @@ jobs:
             echo "CHANGELOG_EOF"
           } >> "$GITHUB_OUTPUT"
 
-          # Build CHANGELOG.md entry
-          CHANGELOG_ENTRY="## [${VERSION}] - ${DATE}
-
-${CHANGES}
-"
-          # Save for next step
-          echo "$CHANGELOG_ENTRY" > /tmp/changelog_entry.md
+          # Build CHANGELOG.md entry and save for next step
+          printf "## [%s] - %s\n\n%s\n" "$VERSION" "$DATE" "$CHANGES" > /tmp/changelog_entry.md
 
       - name: Update CHANGELOG.md
         run: |
@@ -126,7 +121,7 @@ ${CHANGES}
           if [ ! -f CHANGELOG.md ]; then
             echo "# Changelog" > CHANGELOG.md
             echo "" >> CHANGELOG.md
-            echo "All notable changes to Skwirrel WooCommerce Sync will be documented in this file." >> CHANGELOG.md
+            echo "All notable changes to Skwirrel PIM Sync will be documented in this file." >> CHANGELOG.md
             echo "" >> CHANGELOG.md
           fi
 
@@ -141,7 +136,7 @@ ${CHANGES}
       - name: Update plugin version
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          PLUGIN_FILE="skwirrel-woocommerce-sync.php"
+          PLUGIN_FILE="skwirrel-pim-wp-sync.php"
 
           # Update plugin header version
           sed -i "s/^ \* Version: .*/ * Version: ${VERSION}/" "$PLUGIN_FILE"
@@ -159,7 +154,7 @@ ${CHANGES}
           VERSION="${{ steps.version.outputs.version }}"
           TAG="${{ steps.version.outputs.tag }}"
 
-          git add CHANGELOG.md skwirrel-woocommerce-sync.php readme.txt
+          git add CHANGELOG.md skwirrel-pim-wp-sync.php readme.txt
           git commit -m "chore: release ${VERSION} [skip ci]" || echo "No changes to commit"
           git tag -a "$TAG" -m "Release ${VERSION}"
           git push origin HEAD
@@ -193,4 +188,4 @@ ${CHANGES}
         env:
           SVN_USERNAME: ${{ secrets.SVN_USERNAME }}
           SVN_PASSWORD: ${{ secrets.SVN_PASSWORD }}
-          SLUG: skwirrel-woocommerce-sync
+          SLUG: skwirrel-pim-wp-sync

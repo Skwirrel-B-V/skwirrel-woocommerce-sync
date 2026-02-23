@@ -1,4 +1,4 @@
-=== Skwirrel WooCommerce Sync ===
+=== Skwirrel PIM Sync ===
 Contributors: skwirrel
 Tags: woocommerce, sync, erp, pim, skwirrel
 Requires at least: 6.0
@@ -12,7 +12,7 @@ Synchroniseert producten van het Skwirrel ERP/PIM systeem naar WooCommerce via e
 
 == Description ==
 
-Skwirrel WooCommerce Sync koppelt je WooCommerce webshop aan het Skwirrel ERP/PIM systeem. Producten, variaties, afbeeldingen en documenten worden automatisch gesynchroniseerd.
+Skwirrel PIM Sync koppelt je WooCommerce webshop aan het Skwirrel ERP/PIM systeem. Producten, variaties, afbeeldingen en documenten worden automatisch gesynchroniseerd.
 
 **Mogelijkheden:**
 
@@ -31,7 +31,7 @@ Skwirrel WooCommerce Sync koppelt je WooCommerce webshop aan het Skwirrel ERP/PI
 
 == Installation ==
 
-1. Upload de plugin bestanden naar `/wp-content/plugins/skwirrel-woocommerce-sync/`, of installeer de plugin direct via het WordPress plugin scherm.
+1. Upload de plugin bestanden naar `/wp-content/plugins/skwirrel-pim-wp-sync/`, of installeer de plugin direct via het WordPress plugin scherm.
 2. Activeer de plugin via het 'Plugins' scherm in WordPress.
 3. Ga naar WooCommerce → Skwirrel Sync om de plugin in te stellen.
 4. Vul je Skwirrel API URL en authenticatie token in.

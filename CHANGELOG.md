@@ -1,6 +1,6 @@
-# Changelog — Skwirrel WooCommerce Sync
+# Changelog — Skwirrel PIM Sync
 
-All notable changes to Skwirrel WooCommerce Sync will be documented in this file.
+All notable changes to Skwirrel PIM Sync will be documented in this file.
 
 ## [1.1.2] - 2026-02-22
 
@@ -72,7 +72,7 @@ All notable changes to Skwirrel WooCommerce Sync will be documented in this file
   - `run_scheduled_sync()` controleert `skwirrel_wc_sync_force_full_sync` option
   - Indien true: verwijdert optie en draait volledige sync
 
-- **Bootstrap** (`skwirrel-woocommerce-sync.php`):
+- **Bootstrap** (`skwirrel-pim-wp-sync.php`):
   - WooCommerce dependency check bij activatie met installatie-link
   - Verbeterde "WooCommerce ontbreekt"-notice
   - `load_plugin_textdomain()` + `Domain Path: /languages`

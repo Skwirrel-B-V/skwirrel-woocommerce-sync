@@ -1,4 +1,4 @@
-# Skwirrel WooCommerce Sync
+# Skwirrel PIM Sync
 
 **Versie 1.1.1** — WordPress-plugin die producten synchroniseert van de Skwirrel JSON-RPC API naar WooCommerce.
 
@@ -10,7 +10,7 @@
 
 ## Installatie
 
-1. Kopieer de map `skwirrel-woocommerce-sync` naar `wp-content/plugins/`
+1. Kopieer de map `skwirrel-pim-wp-sync` naar `wp-content/plugins/`
 2. Activeer de plugin in **Plugins** → **Geïnstalleerde plugins**
 3. Ga naar **WooCommerce** → **Skwirrel Sync** en configureer de instellingen
 

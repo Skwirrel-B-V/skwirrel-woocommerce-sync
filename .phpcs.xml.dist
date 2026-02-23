@@ -1,9 +1,9 @@
 <?xml version="1.0"?>
-<ruleset name="Skwirrel WooCommerce Sync">
-    <description>Code style rules for Skwirrel WooCommerce Sync plugin.</description>
+<ruleset name="Skwirrel PIM Sync">
+    <description>Code style rules for Skwirrel PIM Sync plugin.</description>
 
     <!-- Scan these files -->
-    <file>skwirrel-woocommerce-sync.php</file>
+    <file>skwirrel-pim-wp-sync.php</file>
     <file>includes/</file>
 
     <!-- Exclude vendor -->
