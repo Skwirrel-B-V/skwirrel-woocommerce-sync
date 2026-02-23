@@ -43,7 +43,7 @@ class Skwirrel_WC_Sync_Action_Scheduler {
             $timestamp = time() + 60;
             $interval_seconds = $this->interval_to_seconds($interval);
             if ($interval_seconds > 0) {
-                as_schedule_recurring_action($timestamp, $interval_seconds, self::HOOK_SYNC, [], 'skwirrel-wc-sync');
+                as_schedule_recurring_action($timestamp, $interval_seconds, self::HOOK_SYNC, [], 'skwirrel-pim-wp-sync');
             }
         } else {
             wp_schedule_event(time() + 60, $interval, self::HOOK_SYNC);
@@ -52,7 +52,7 @@ class Skwirrel_WC_Sync_Action_Scheduler {
 
     public function unschedule(): void {
         if (function_exists('as_unschedule_all_actions')) {
-            as_unschedule_all_actions(self::HOOK_SYNC, [], 'skwirrel-wc-sync');
+            as_unschedule_all_actions(self::HOOK_SYNC, [], 'skwirrel-pim-wp-sync');
         }
         wp_clear_scheduled_hook(self::HOOK_SYNC);
     }
@@ -79,9 +79,9 @@ class Skwirrel_WC_Sync_Action_Scheduler {
      */
     public function enqueue_manual_sync(): void {
         if (function_exists('as_enqueue_async_action')) {
-            as_enqueue_async_action(self::HOOK_SYNC, ['delta' => false], 'skwirrel-wc-sync');
+            as_enqueue_async_action(self::HOOK_SYNC, ['delta' => false], 'skwirrel-pim-wp-sync');
         } elseif (function_exists('as_schedule_single_action')) {
-            as_schedule_single_action(time(), self::HOOK_SYNC, ['delta' => false], 'skwirrel-wc-sync');
+            as_schedule_single_action(time(), self::HOOK_SYNC, ['delta' => false], 'skwirrel-pim-wp-sync');
         } else {
             wp_schedule_single_event(time(), self::HOOK_SYNC, [['delta' => false]]);
             spawn_cron();
@@ -91,7 +91,7 @@ class Skwirrel_WC_Sync_Action_Scheduler {
     public function add_cron_schedules(array $schedules): array {
         $schedules['skwirrel_twice_daily'] = [
             'interval' => 12 * HOUR_IN_SECONDS,
-            'display' => __('Twee keer per dag', 'skwirrel-wc-sync'),
+            'display' => __('Twee keer per dag', 'skwirrel-pim-wp-sync'),
         ];
         return $schedules;
     }
@@ -109,11 +109,11 @@ class Skwirrel_WC_Sync_Action_Scheduler {
 
     public static function get_interval_options(): array {
         return [
-            '' => __('Uitgeschakeld', 'skwirrel-wc-sync'),
-            'hourly' => __('Elk uur', 'skwirrel-wc-sync'),
-            'twicedaily' => __('Twee keer per dag', 'skwirrel-wc-sync'),
-            'daily' => __('Dagelijks', 'skwirrel-wc-sync'),
-            'weekly' => __('Wekelijks', 'skwirrel-wc-sync'),
+            '' => __('Uitgeschakeld', 'skwirrel-pim-wp-sync'),
+            'hourly' => __('Elk uur', 'skwirrel-pim-wp-sync'),
+            'twicedaily' => __('Twee keer per dag', 'skwirrel-pim-wp-sync'),
+            'daily' => __('Dagelijks', 'skwirrel-pim-wp-sync'),
+            'weekly' => __('Wekelijks', 'skwirrel-pim-wp-sync'),
         ];
     }
 }

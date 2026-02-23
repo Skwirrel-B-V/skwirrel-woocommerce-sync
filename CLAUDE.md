@@ -4,7 +4,7 @@
 
 WordPress plugin that synchronises products from the Skwirrel ERP/PIM system into WooCommerce via a JSON-RPC 2.0 API. Written in PHP 8.1+, targeting WordPress 6.x and WooCommerce 8+ (tested up to 10.5).
 
-The plugin is Dutch-facing (UI strings in Dutch, text domain `skwirrel-wc-sync`).
+The plugin is Dutch-facing (UI strings in Dutch, text domain `skwirrel-pim-wp-sync`).
 
 ## Architecture
 
@@ -59,10 +59,10 @@ Authentication: Bearer token or `X-Skwirrel-Api-Token` header.
 - **Singletons**: Most classes use `::instance()` pattern with private constructors
 - **No autoloader**: All includes are manual `require_once` in the bootstrap
 - **Settings storage**: Main settings in `skwirrel_wc_sync_settings` option; auth token stored separately in `skwirrel_wc_sync_auth_token`
-- **Logging**: Always use `Skwirrel_WC_Sync_Logger` (wraps `wc_get_logger()`, source `skwirrel-wc-sync`)
+- **Logging**: Always use `Skwirrel_WC_Sync_Logger` (wraps `wc_get_logger()`, source `skwirrel-pim-wp-sync`)
 - **WooCommerce hooks**: Use standard WC filter/action naming conventions
 - **Templates**: Follow WooCommerce template override pattern (`templates/` dir, overridable in theme)
-- **Text domain**: `skwirrel-wc-sync`
+- **Text domain**: `skwirrel-pim-wp-sync`
 - **Language**: UI text and comments are in Dutch
 
 ## Important Post Meta Keys

@@ -16,6 +16,6 @@ Wijzig dan de volgende bestanden:
 4. Indien relevant voor sync: pas `includes/class-sync-service.php` aan om de setting te lezen
 
 Gebruik altijd:
-- Text domain: `skwirrel-wc-sync`
+- Text domain: `skwirrel-pim-wp-sync`
 - Nederlandse UI tekst
 - WordPress sanitization functies

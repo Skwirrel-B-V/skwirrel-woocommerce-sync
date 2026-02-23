@@ -39,9 +39,9 @@ Applies to `includes/class-admin-settings.php`.
 
 ## UI Conventions
 
-- Page slug: `skwirrel-wc-sync` (submenu under WooCommerce)
+- Page slug: `skwirrel-pim-wp-sync` (submenu under WooCommerce)
 - Capability: `manage_woocommerce`
-- Language: all UI strings in Dutch, text domain `skwirrel-wc-sync`
+- Language: all UI strings in Dutch, text domain `skwirrel-pim-wp-sync`
 - Tables: `.form-table` for settings, `.widefat` for results/history
 - Nonce: standard `_wpnonce` via `settings_fields()`
 - Background sync: fires AJAX to `wp_ajax_skwirrel_wc_sync_background`, gated by transient `skwirrel_wc_sync_bg_token`

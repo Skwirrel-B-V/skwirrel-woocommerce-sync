@@ -360,11 +360,11 @@ class Skwirrel_WC_Sync_Product_Mapper {
     /** Document type codes from Skwirrel: MAN=Manual, DAT=Datasheet, etc. */
     private function get_document_type_label(string $code): string {
         $labels = [
-            'MAN' => __('Handleiding', 'skwirrel-wc-sync'),
-            'DAT' => __('Datasheet', 'skwirrel-wc-sync'),
-            'CER' => __('Certificaat', 'skwirrel-wc-sync'),
-            'WAR' => __('Garantie', 'skwirrel-wc-sync'),
-            'OTV' => __('Overig document', 'skwirrel-wc-sync'),
+            'MAN' => __('Handleiding', 'skwirrel-pim-wp-sync'),
+            'DAT' => __('Datasheet', 'skwirrel-pim-wp-sync'),
+            'CER' => __('Certificaat', 'skwirrel-pim-wp-sync'),
+            'WAR' => __('Garantie', 'skwirrel-pim-wp-sync'),
+            'OTV' => __('Overig document', 'skwirrel-pim-wp-sync'),
         ];
         return $labels[strtoupper($code)] ?? $code;
     }

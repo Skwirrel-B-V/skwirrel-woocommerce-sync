@@ -92,7 +92,7 @@ De waarschuwing is uit te schakelen via de instelling "Verwijderwaarschuwing ton
 ## Logging
 
 De plugin gebruikt de WooCommerce logger (`wc_get_logger`). Logs zijn te vinden in:
-- **WooCommerce** → **Status** → **Logs** → bron: `skwirrel-wc-sync`
+- **WooCommerce** → **Status** → **Logs** → bron: `skwirrel-pim-wp-sync`
 
 ## Vertalingen
 

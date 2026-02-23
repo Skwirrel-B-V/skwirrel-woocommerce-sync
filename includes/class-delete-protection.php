@@ -110,12 +110,12 @@ class Skwirrel_WC_Sync_Delete_Protection {
         <div class="notice notice-warning is-dismissible skwirrel-sync-delete-warning">
             <p>
                 <strong>Skwirrel Sync:</strong>
-                <?php esc_html_e('Dit product wordt beheerd door Skwirrel. Wijzigingen aan productgegevens dienen in Skwirrel te worden gemaakt.', 'skwirrel-wc-sync'); ?>
+                <?php esc_html_e('Dit product wordt beheerd door Skwirrel. Wijzigingen aan productgegevens dienen in Skwirrel te worden gemaakt.', 'skwirrel-pim-wp-sync'); ?>
             </p>
             <p>
-                <?php esc_html_e('Als u dit product verwijdert of naar de prullenbak verplaatst, zal het bij de volgende synchronisatie automatisch opnieuw worden aangemaakt.', 'skwirrel-wc-sync'); ?>
+                <?php esc_html_e('Als u dit product verwijdert of naar de prullenbak verplaatst, zal het bij de volgende synchronisatie automatisch opnieuw worden aangemaakt.', 'skwirrel-pim-wp-sync'); ?>
                 <?php if ($synced_str) : ?>
-                    <br><small><?php echo esc_html(sprintf(__('Laatst gesynchroniseerd: %s', 'skwirrel-wc-sync'), $synced_str)); ?></small>
+                    <br><small><?php echo esc_html(sprintf(__('Laatst gesynchroniseerd: %s', 'skwirrel-pim-wp-sync'), $synced_str)); ?></small>
                 <?php endif; ?>
             </p>
         </div>
@@ -185,7 +185,7 @@ class Skwirrel_WC_Sync_Delete_Protection {
             return;
         }
 
-        $msg = __('Dit product wordt beheerd door Skwirrel en zal bij de volgende synchronisatie opnieuw worden aangemaakt.\n\nWeet u zeker dat u dit product naar de prullenbak wilt verplaatsen?', 'skwirrel-wc-sync');
+        $msg = __('Dit product wordt beheerd door Skwirrel en zal bij de volgende synchronisatie opnieuw worden aangemaakt.\n\nWeet u zeker dat u dit product naar de prullenbak wilt verplaatsen?', 'skwirrel-pim-wp-sync');
         ?>
         <script>
         (function() {
@@ -216,7 +216,7 @@ class Skwirrel_WC_Sync_Delete_Protection {
             return;
         }
 
-        $msg = __('Deze categorie is aangemaakt door Skwirrel Sync en zal bij de volgende synchronisatie opnieuw worden aangemaakt.\n\nWeet u zeker dat u deze categorie wilt verwijderen?', 'skwirrel-wc-sync');
+        $msg = __('Deze categorie is aangemaakt door Skwirrel Sync en zal bij de volgende synchronisatie opnieuw worden aangemaakt.\n\nWeet u zeker dat u deze categorie wilt verwijderen?', 'skwirrel-pim-wp-sync');
         ?>
         <script>
         (function() {

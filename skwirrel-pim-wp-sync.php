@@ -3,16 +3,15 @@
  * Plugin Name: Skwirrel PIM Sync
  * Plugin URI: https://github.com/Skwirrel-B-V/skwirrel-pim-wp-sync
  * Description: Sync plugin for Skwirrel PIM via Skwirrel JSON-RPC API to WooCommerce.
- * Version: 1.1.2
- * Author: Skwirrel Sync
+ * Version: 1.2.0
+ * Author: Skwirrel B.V.
  * Author URI: https://skwirrel.eu
  * Requires at least: 6.0
  * Requires PHP: 8.1
  * WC requires at least: 8.0
  * WC tested up to: 10.5
  * License: GPL v2 or later
- * Text Domain: skwirrel-wc-sync
- * Domain Path: /languages
+ * Text Domain: skwirrel-pim-wp-sync
  * Requires Plugins: woocommerce
  */
 
@@ -22,18 +21,10 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('SKWIRREL_WC_SYNC_VERSION', '1.1.2');
+define('SKWIRREL_WC_SYNC_VERSION', '1.2.0');
 define('SKWIRREL_WC_SYNC_PLUGIN_FILE', __FILE__);
 define('SKWIRREL_WC_SYNC_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('SKWIRREL_WC_SYNC_PLUGIN_URL', plugin_dir_url(__FILE__));
-
-add_action('plugins_loaded', function (): void {
-    load_plugin_textdomain('skwirrel-wc-sync', false, dirname(plugin_basename(__FILE__)) . '/languages');
-
-    if (class_exists('WooCommerce') && is_readable(WP_PLUGIN_DIR . '/woocommerce/i18n/languages')) {
-        load_plugin_textdomain('woocommerce', false, 'woocommerce/i18n/languages');
-    }
-}, -999);
 
 add_action('before_woocommerce_init', function (): void {
     if (class_exists(\Automattic\WooCommerce\Utilities\FeaturesUtil::class)) {
@@ -46,9 +37,9 @@ register_activation_hook(__FILE__, function (): void {
     if (!class_exists('WooCommerce') && !in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_option('active_plugins', [])), true)) {
         deactivate_plugins(plugin_basename(__FILE__));
         wp_die(
-            esc_html__('Skwirrel PIM Sync vereist WooCommerce om te functioneren.', 'skwirrel-wc-sync')
+            esc_html__('Skwirrel PIM Sync vereist WooCommerce om te functioneren.', 'skwirrel-pim-wp-sync')
             . ' <a href="' . esc_url(admin_url('plugin-install.php?s=woocommerce&tab=search&type=term')) . '">'
-            . esc_html__('Installeer WooCommerce', 'skwirrel-wc-sync') . '</a>.',
+            . esc_html__('Installeer WooCommerce', 'skwirrel-pim-wp-sync') . '</a>.',
             'Plugin Activation Error',
             ['back_link' => true]
         );
@@ -117,7 +108,7 @@ final class Skwirrel_WC_Sync_Plugin {
                 printf(
                     /* translators: %1$s = install URL, %2$s = activate URL */
                     wp_kses(
-                        __('WooCommerce is vereist. <a href="%s">Installeer WooCommerce</a> of <a href="%s">activeer WooCommerce</a>.', 'skwirrel-wc-sync'),
+                        __('WooCommerce is vereist. <a href="%s">Installeer WooCommerce</a> of <a href="%s">activeer WooCommerce</a>.', 'skwirrel-pim-wp-sync'),
                         ['a' => ['href' => []]]
                     ),
                     esc_url($install_url),

@@ -680,7 +680,7 @@ class Skwirrel_WC_Sync_Service {
 
         $name = (string) ($group['grouped_product_name'] ?? $group['grouped_product_code'] ?? $group['name'] ?? '');
         if ($name === '') {
-            $name = sprintf(__('Product %s', 'skwirrel-wc-sync'), $grouped_id);
+            $name = sprintf(__('Product %s', 'skwirrel-pim-wp-sync'), $grouped_id);
         }
 
         $group_sku = (string) ($group['grouped_product_code'] ?? $group['internal_product_code'] ?? '');
@@ -1152,7 +1152,7 @@ class Skwirrel_WC_Sync_Service {
                 $wpdb->prefix . 'woocommerce_attribute_taxonomies',
                 [
                     'attribute_name' => 'variant',
-                    'attribute_label' => __('Variant', 'skwirrel-wc-sync'),
+                    'attribute_label' => __('Variant', 'skwirrel-pim-wp-sync'),
                     'attribute_type' => 'select',
                     'attribute_orderby' => 'menu_order',
                     'attribute_public' => 1,
@@ -1161,7 +1161,7 @@ class Skwirrel_WC_Sync_Service {
             delete_transient('wc_attribute_taxonomies');
         }
         register_taxonomy('pa_variant', 'product', [
-            'labels' => ['name' => __('Variant', 'skwirrel-wc-sync')],
+            'labels' => ['name' => __('Variant', 'skwirrel-pim-wp-sync')],
             'hierarchical' => false,
             'show_ui' => true,
             'query_var' => true,
@@ -1180,8 +1180,8 @@ class Skwirrel_WC_Sync_Service {
 
     private function get_etim_code_label(string $code): string {
         $map = [
-            'EF002671' => __('Colour', 'skwirrel-wc-sync'),
-            'EF008078' => __('Number of cups', 'skwirrel-wc-sync'),
+            'EF002671' => __('Colour', 'skwirrel-pim-wp-sync'),
+            'EF008078' => __('Number of cups', 'skwirrel-pim-wp-sync'),
         ];
         return $map[strtoupper($code)] ?? $code;
     }
@@ -1237,12 +1237,12 @@ class Skwirrel_WC_Sync_Service {
             'labels' => [
                 'name' => $label,
                 'singular_name' => $label,
-                'search_items' => sprintf(__('Search %s', 'skwirrel-wc-sync'), $label),
-                'all_items' => sprintf(__('All %s', 'skwirrel-wc-sync'), $label),
-                'edit_item' => sprintf(__('Edit %s', 'skwirrel-wc-sync'), $label),
-                'update_item' => sprintf(__('Update %s', 'skwirrel-wc-sync'), $label),
-                'add_new_item' => sprintf(__('Add new %s', 'skwirrel-wc-sync'), $label),
-                'new_item_name' => sprintf(__('New %s', 'skwirrel-wc-sync'), $label),
+                'search_items' => sprintf(__('Search %s', 'skwirrel-pim-wp-sync'), $label),
+                'all_items' => sprintf(__('All %s', 'skwirrel-pim-wp-sync'), $label),
+                'edit_item' => sprintf(__('Edit %s', 'skwirrel-pim-wp-sync'), $label),
+                'update_item' => sprintf(__('Update %s', 'skwirrel-pim-wp-sync'), $label),
+                'add_new_item' => sprintf(__('Add new %s', 'skwirrel-pim-wp-sync'), $label),
+                'new_item_name' => sprintf(__('New %s', 'skwirrel-pim-wp-sync'), $label),
             ],
             'show_ui' => true,
             'show_in_quick_edit' => false,
