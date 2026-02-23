@@ -37,7 +37,7 @@ class Skwirrel_WC_Sync_Service {
      */
     public function run_sync(bool $delta = false): array {
         if (function_exists('set_time_limit')) {
-            @set_time_limit(0);
+            @set_time_limit(0); // phpcs:ignore Generic.PHP.NoSilencedErrors.Discouraged,Squiz.PHP.DiscouragedFunctions.Discouraged -- long-running sync requires no time limit
         }
 
         $sync_started_at = time();
@@ -236,7 +236,7 @@ class Skwirrel_WC_Sync_Service {
                     if (defined('SKWIRREL_WC_SYNC_DEBUG_ETIM') && SKWIRREL_WC_SYNC_DEBUG_ETIM && !$group_info && $skwirrel_product_id !== null) {
                         $upload = wp_upload_dir();
                         $dir = $upload['basedir'] ?? '';
-                        if ($dir && is_writable($dir)) {
+                        if ($dir && wp_is_writable($dir)) {
                             $line = sprintf("[%s] Product NOT in group: product_id=%s, sku=%s (map has %d product_ids)\n",
                                 gmdate('Y-m-d H:i:s'), $skwirrel_product_id, $sku_for_lookup, count(array_filter(array_keys($product_to_group_map), 'is_int')));
                             file_put_contents($dir . '/skwirrel-variation-debug.log', $line, FILE_APPEND | LOCK_EX);
@@ -680,6 +680,7 @@ class Skwirrel_WC_Sync_Service {
 
         $name = (string) ($group['grouped_product_name'] ?? $group['grouped_product_code'] ?? $group['name'] ?? '');
         if ($name === '') {
+            /* translators: %s = grouped product ID */
             $name = sprintf(__('Product %s', 'skwirrel-pim-wp-sync'), $grouped_id);
         }
 
@@ -883,7 +884,7 @@ class Skwirrel_WC_Sync_Service {
                 if (defined('SKWIRREL_WC_SYNC_DEBUG_ETIM') && SKWIRREL_WC_SYNC_DEBUG_ETIM) {
                     $dump = wp_upload_dir();
                     $file = ($dump['basedir'] ?? '') . '/skwirrel-etim-debug-' . $sku . '.json';
-                    if ($file && is_writable(dirname($file))) {
+                    if ($file && wp_is_writable(dirname($file))) {
                         file_put_contents($file, wp_json_encode([
                             'sku' => $sku,
                             'product_keys' => array_keys($product),
@@ -1077,7 +1078,7 @@ class Skwirrel_WC_Sync_Service {
         // 1. Match by Skwirrel category ID in term meta (reliable)
         if ($skwirrel_id !== null) {
             global $wpdb;
-            $existing_term_id = $wpdb->get_var($wpdb->prepare(
+            $existing_term_id = $wpdb->get_var($wpdb->prepare( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- term meta lookup by value not supported by WP API
                 "SELECT tm.term_id FROM {$wpdb->termmeta} tm
                  INNER JOIN {$wpdb->term_taxonomy} tt ON tm.term_id = tt.term_id AND tt.taxonomy = %s
                  WHERE tm.meta_key = %s AND tm.meta_value = %s
@@ -1148,7 +1149,7 @@ class Skwirrel_WC_Sync_Service {
         }
         if (!wc_attribute_taxonomy_id_by_name('variant')) {
             global $wpdb;
-            $wpdb->insert(
+            $wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- WC attribute table has no API
                 $wpdb->prefix . 'woocommerce_attribute_taxonomies',
                 [
                     'attribute_name' => 'variant',
@@ -1205,7 +1206,7 @@ class Skwirrel_WC_Sync_Service {
                 }
             } else {
                 global $wpdb;
-                $wpdb->insert(
+                $wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- WC attribute table fallback for old WC versions
                     $wpdb->prefix . 'woocommerce_attribute_taxonomies',
                     [
                         'attribute_name' => $slug,
@@ -1237,11 +1238,17 @@ class Skwirrel_WC_Sync_Service {
             'labels' => [
                 'name' => $label,
                 'singular_name' => $label,
+                /* translators: %s = attribute label */
                 'search_items' => sprintf(__('Search %s', 'skwirrel-pim-wp-sync'), $label),
+                /* translators: %s = attribute label */
                 'all_items' => sprintf(__('All %s', 'skwirrel-pim-wp-sync'), $label),
+                /* translators: %s = attribute label */
                 'edit_item' => sprintf(__('Edit %s', 'skwirrel-pim-wp-sync'), $label),
+                /* translators: %s = attribute label */
                 'update_item' => sprintf(__('Update %s', 'skwirrel-pim-wp-sync'), $label),
+                /* translators: %s = attribute label */
                 'add_new_item' => sprintf(__('Add new %s', 'skwirrel-pim-wp-sync'), $label),
+                /* translators: %s = attribute label */
                 'new_item_name' => sprintf(__('New %s', 'skwirrel-pim-wp-sync'), $label),
             ],
             'show_ui' => true,
@@ -1262,6 +1269,7 @@ class Skwirrel_WC_Sync_Service {
             ],
         ];
         register_taxonomy($taxonomy, ['product'], $taxonomy_data);
+        // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound -- WooCommerce global
         global $wc_product_attributes;
         if (!is_array($wc_product_attributes)) {
             $wc_product_attributes = [];
@@ -1279,7 +1287,7 @@ class Skwirrel_WC_Sync_Service {
     private function write_variation_debug(string $sku, array $etim_codes, array $etim_values, array $product, array $variation_attrs): void {
         $upload = wp_upload_dir();
         $dir = $upload['basedir'] ?? '';
-        if (!$dir || !is_writable($dir)) {
+        if (!$dir || !wp_is_writable($dir)) {
             return;
         }
         $file = $dir . '/skwirrel-variation-debug.log';
@@ -1297,6 +1305,7 @@ class Skwirrel_WC_Sync_Service {
 
     private function find_variation_by_sku(int $parent_id, string $sku): int {
         global $wpdb;
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- variation lookup by parent+SKU not supported by WP API
         $id = $wpdb->get_var($wpdb->prepare(
             "SELECT p.ID FROM {$wpdb->posts} p
             INNER JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id AND pm.meta_key = '_sku'
@@ -1339,6 +1348,7 @@ class Skwirrel_WC_Sync_Service {
 
     private function find_by_grouped_product_id(int $grouped_product_id): int {
         global $wpdb;
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- meta value lookup not supported by WP API
         $id = $wpdb->get_var($wpdb->prepare(
             "SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key = %s AND meta_value = %s LIMIT 1",
             self::GROUPED_PRODUCT_ID_META,
@@ -1350,6 +1360,7 @@ class Skwirrel_WC_Sync_Service {
     private function find_by_skwirrel_product_id(int $product_id): int {
         global $wpdb;
         $meta_key = $this->mapper->get_product_id_meta_key();
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- meta value lookup with post_type filter not supported by WP API
         $id = $wpdb->get_var($wpdb->prepare(
             "SELECT pm.post_id FROM {$wpdb->postmeta} pm
              INNER JOIN {$wpdb->posts} p ON pm.post_id = p.ID
@@ -1424,6 +1435,7 @@ class Skwirrel_WC_Sync_Service {
     private function find_by_external_id(string $key): int {
         global $wpdb;
         $meta_key = $this->mapper->get_external_id_meta_key();
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- meta value lookup with post_type filter not supported by WP API
         $id = $wpdb->get_var($wpdb->prepare(
             "SELECT pm.post_id FROM {$wpdb->postmeta} pm
              INNER JOIN {$wpdb->posts} p ON pm.post_id = p.ID
@@ -1460,6 +1472,7 @@ class Skwirrel_WC_Sync_Service {
 
         // Vind producten met _skwirrel_external_id die NIET bijgewerkt zijn tijdens deze sync
         // Veiligheidscheck: meta_value moet numeriek zijn (voorkom corrupt data → onterecht trashen)
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
         $stale_ids = $wpdb->get_col($wpdb->prepare(
             "SELECT DISTINCT pm_ext.post_id
              FROM {$wpdb->postmeta} pm_ext
@@ -1480,6 +1493,7 @@ class Skwirrel_WC_Sync_Service {
         ));
 
         // Vind variable producten (grouped products) die niet bijgewerkt zijn
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
         $stale_variable_ids = $wpdb->get_col($wpdb->prepare(
             "SELECT DISTINCT pm_grp.post_id
              FROM {$wpdb->postmeta} pm_grp
@@ -1565,6 +1579,7 @@ class Skwirrel_WC_Sync_Service {
         global $wpdb;
         $cat_meta_key = Skwirrel_WC_Sync_Product_Mapper::CATEGORY_ID_META;
 
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
         $all_skwirrel_terms = $wpdb->get_results($wpdb->prepare(
             "SELECT tm.term_id, tm.meta_value as skwirrel_id, t.name as term_name
              FROM {$wpdb->termmeta} tm
@@ -1583,6 +1598,7 @@ class Skwirrel_WC_Sync_Service {
             }
 
             // Veiligheidscheck: verwijder niet als er nog producten aan gekoppeld zijn
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
             $product_count = (int) $wpdb->get_var($wpdb->prepare(
                 "SELECT COUNT(*) FROM {$wpdb->term_relationships} tr
                  INNER JOIN {$wpdb->posts} p ON tr.object_id = p.ID

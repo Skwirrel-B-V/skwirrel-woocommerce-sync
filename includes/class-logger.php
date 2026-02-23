@@ -64,6 +64,7 @@ class Skwirrel_WC_Sync_Logger {
         if ($this->wc_logger) {
             $this->wc_logger->log($level, $full_message, ['source' => self::LOG_SOURCE]);
         } elseif (defined('WP_DEBUG') && WP_DEBUG) {
+            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Fallback when WC_Logger unavailable
             error_log(sprintf('[Skwirrel Sync][%s] %s', strtoupper($level), $full_message));
         }
     }

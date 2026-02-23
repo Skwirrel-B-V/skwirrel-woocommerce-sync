@@ -70,7 +70,7 @@ class Skwirrel_WC_Sync_Product_Mapper {
         if (filter_var($url, FILTER_VALIDATE_URL)) {
             return true;
         }
-        $parsed = parse_url($url);
+        $parsed = wp_parse_url($url);
         return isset($parsed['scheme'], $parsed['host'])
             && in_array(strtolower($parsed['scheme']), ['http', 'https'], true);
     }
@@ -337,7 +337,7 @@ class Skwirrel_WC_Sync_Product_Mapper {
             }
             $name = (string) ($att['file_name'] ?? $att['product_attachment_title'] ?? '');
             if ($name === '') {
-                $path = parse_url($url, PHP_URL_PATH);
+                $path = wp_parse_url($url, PHP_URL_PATH);
                 $name = $path ? basename($path) : 'Document';
             }
             $id = $this->media_importer->import_file($url, $name, $product_id);

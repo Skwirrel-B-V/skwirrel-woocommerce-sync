@@ -34,6 +34,7 @@ add_action('before_woocommerce_init', function (): void {
 
 register_activation_hook(__FILE__, function (): void {
     // Check WooCommerce dependency on activation
+    // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- WordPress core filter
     if (!class_exists('WooCommerce') && !in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_option('active_plugins', [])), true)) {
         deactivate_plugins(plugin_basename(__FILE__));
         wp_die(
@@ -108,7 +109,7 @@ final class Skwirrel_WC_Sync_Plugin {
                 printf(
                     /* translators: %1$s = install URL, %2$s = activate URL */
                     wp_kses(
-                        __('WooCommerce is vereist. <a href="%s">Installeer WooCommerce</a> of <a href="%s">activeer WooCommerce</a>.', 'skwirrel-pim-wp-sync'),
+                        __('WooCommerce is vereist. <a href="%1$s">Installeer WooCommerce</a> of <a href="%2$s">activeer WooCommerce</a>.', 'skwirrel-pim-wp-sync'),
                         ['a' => ['href' => []]]
                     ),
                     esc_url($install_url),

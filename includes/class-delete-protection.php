@@ -115,6 +115,7 @@ class Skwirrel_WC_Sync_Delete_Protection {
             <p>
                 <?php esc_html_e('Als u dit product verwijdert of naar de prullenbak verplaatst, zal het bij de volgende synchronisatie automatisch opnieuw worden aangemaakt.', 'skwirrel-pim-wp-sync'); ?>
                 <?php if ($synced_str) : ?>
+                    <?php /* translators: %s = last sync datetime */ ?>
                     <br><small><?php echo esc_html(sprintf(__('Laatst gesynchroniseerd: %s', 'skwirrel-pim-wp-sync'), $synced_str)); ?></small>
                 <?php endif; ?>
             </p>

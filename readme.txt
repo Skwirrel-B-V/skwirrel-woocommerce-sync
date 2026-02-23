@@ -8,57 +8,61 @@ Stable tag: 1.2.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Synchroniseert producten van het Skwirrel ERP/PIM systeem naar WooCommerce via een JSON-RPC 2.0 API.
+Synchronises products from the Skwirrel ERP/PIM system to WooCommerce via a JSON-RPC 2.0 API.
 
 == Description ==
 
-Skwirrel PIM Sync koppelt je WooCommerce webshop aan het Skwirrel ERP/PIM systeem. Producten, variaties, afbeeldingen en documenten worden automatisch gesynchroniseerd.
+Skwirrel PIM Sync connects your WooCommerce webshop to the Skwirrel ERP/PIM system. Products, variations, images and documents are synchronised automatically.
 
-**Mogelijkheden:**
+**Features:**
 
-* Volledige en delta synchronisatie van producten
-* Ondersteuning voor eenvoudige en variabele producten
-* Automatische import van productafbeeldingen en documenten
-* Geplande synchronisatie via WP-Cron of Action Scheduler
-* Handmatige synchronisatie vanuit het WordPress admin paneel
-* ETIM classificatie ondersteuning voor variatie-assen
+* Full and delta product synchronisation
+* Support for simple and variable products
+* Automatic import of product images and documents
+* Scheduled synchronisation via WP-Cron or Action Scheduler
+* Manual synchronisation from the WordPress admin panel
+* ETIM classification support for variation axes
 
-**Vereisten:**
+**Requirements:**
 
-* WooCommerce 8.0 of hoger
-* PHP 8.1 of hoger
-* Een actief Skwirrel account met API-toegang
+* WooCommerce 8.0 or higher
+* PHP 8.1 or higher
+* An active Skwirrel account with API access
 
 == Installation ==
 
-1. Upload de plugin bestanden naar `/wp-content/plugins/skwirrel-pim-wp-sync/`, of installeer de plugin direct via het WordPress plugin scherm.
-2. Activeer de plugin via het 'Plugins' scherm in WordPress.
-3. Ga naar WooCommerce → Skwirrel Sync om de plugin in te stellen.
-4. Vul je Skwirrel API URL en authenticatie token in.
-5. Klik op 'Sync nu' om de eerste synchronisatie te starten.
+1. Upload the plugin files to `/wp-content/plugins/skwirrel-pim-wp-sync/`, or install the plugin directly through the WordPress plugin screen.
+2. Activate the plugin through the 'Plugins' screen in WordPress.
+3. Navigate to WooCommerce > Skwirrel Sync to configure the plugin.
+4. Enter your Skwirrel API URL and authentication token.
+5. Click 'Sync now' to start the first synchronisation.
 
 == Frequently Asked Questions ==
 
-= Welke Skwirrel API versie wordt ondersteund? =
+= Which Skwirrel API version is supported? =
 
-De plugin werkt met de Skwirrel JSON-RPC 2.0 API.
+The plugin works with the Skwirrel JSON-RPC 2.0 API.
 
-= Hoe vaak worden producten gesynchroniseerd? =
+= How often are products synchronised? =
 
-Je kunt een automatisch schema instellen (elk uur, tweemaal daags, of dagelijks) of handmatig synchroniseren vanuit de instellingenpagina.
+You can set an automatic schedule (hourly, twice daily, or daily) or synchronise manually from the settings page.
 
-= Worden bestaande producten overschreven? =
+= Are existing products overwritten? =
 
-De plugin gebruikt het Skwirrel external ID als unieke sleutel. Bestaande producten worden bijgewerkt, niet gedupliceerd.
+The plugin uses the Skwirrel external ID as a unique key. Existing products are updated, not duplicated.
 
 == Changelog ==
 
+= 1.2.0 =
+* Rebranded to Skwirrel PIM Sync
+* WordPress Plugin Check compliance improvements
+
 = 1.1.2 =
-* Versie bump
+* Version bump
 
 = 1.0.0 =
-* Eerste release
-* Volledige product synchronisatie
-* Variabele producten met ETIM variatie-assen
-* Afbeelding en document import
-* Delta synchronisatie ondersteuning
+* Initial release
+* Full product synchronisation
+* Variable products with ETIM variation axes
+* Image and document import
+* Delta synchronisation support

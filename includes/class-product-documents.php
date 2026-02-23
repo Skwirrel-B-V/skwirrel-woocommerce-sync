@@ -78,7 +78,7 @@ class Skwirrel_WC_Sync_Product_Documents {
                 <?php foreach ($docs as $doc) : ?>
                     <li class="skwirrel-document-item">
                         <a href="<?php echo esc_url($doc['url']); ?>" target="_blank" rel="noopener noreferrer" class="skwirrel-document-link">
-                            <span class="skwirrel-document-icon"><?php echo $this->get_file_icon($doc['url']); ?></span>
+                            <span class="skwirrel-document-icon"><?php echo esc_html( $this->get_file_icon($doc['url']) ); ?></span>
                             <span class="skwirrel-document-name"><?php echo esc_html($doc['name']); ?></span>
                             <?php if (!empty($doc['type_label'])) : ?>
                                 <span class="skwirrel-document-type">(<?php echo esc_html($doc['type_label']); ?>)</span>
@@ -154,7 +154,7 @@ class Skwirrel_WC_Sync_Product_Documents {
     }
 
     private function get_file_icon(string $url): string {
-        $ext = strtolower(pathinfo(parse_url($url, PHP_URL_PATH) ?: '', PATHINFO_EXTENSION));
+        $ext = strtolower(pathinfo(wp_parse_url($url, PHP_URL_PATH) ?: '', PATHINFO_EXTENSION));
         if ($ext === 'pdf') {
             return '📄';
         }

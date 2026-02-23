@@ -196,6 +196,7 @@ class Skwirrel_WC_Sync_Admin_Settings {
         wp_remote_post($url, [
             'blocking' => false,
             'timeout' => 0.01,
+            // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- WordPress core filter
             'sslverify' => apply_filters('https_local_ssl_verify', false),
         ]);
 
@@ -473,12 +474,12 @@ class Skwirrel_WC_Sync_Admin_Settings {
                         ?>
                         <tr style="background-color: #fff3cd;">
                             <td><strong><?php esc_html_e('Verwijderd (prullenbak)', 'skwirrel-pim-wp-sync'); ?></strong></td>
-                            <td style="text-align: right;"><span style="color: #856404; font-weight: bold; font-size: 16px;"><?php echo $trashed_count; ?></span></td>
+                            <td style="text-align: right;"><span style="color: #856404; font-weight: bold; font-size: 16px;"><?php echo esc_html((string)$trashed_count); ?></span></td>
                         </tr>
                         <?php if ($cats_removed > 0) : ?>
                         <tr style="background-color: #fff3cd;">
                             <td style="padding-left: 20px;"><?php esc_html_e('↳ Categorieën opgeruimd', 'skwirrel-pim-wp-sync'); ?></td>
-                            <td style="text-align: right;"><span style="color: #856404;"><?php echo $cats_removed; ?></span></td>
+                            <td style="text-align: right;"><span style="color: #856404;"><?php echo esc_html((string)$cats_removed); ?></span></td>
                         </tr>
                         <?php endif; ?>
                         <?php endif; ?>
@@ -489,11 +490,11 @@ class Skwirrel_WC_Sync_Admin_Settings {
                         ?>
                         <tr style="background-color: #f9f9f9;">
                             <td style="padding-left: 20px;"><?php esc_html_e('↳ Met kenmerken', 'skwirrel-pim-wp-sync'); ?></td>
-                            <td style="text-align: right;"><?php echo $with_a; ?></td>
+                            <td style="text-align: right;"><?php echo esc_html((string)$with_a); ?></td>
                         </tr>
                         <tr>
                             <td style="padding-left: 20px;"><?php esc_html_e('↳ Zonder kenmerken', 'skwirrel-pim-wp-sync'); ?></td>
-                            <td style="text-align: right;"><?php echo $without_a; ?></td>
+                            <td style="text-align: right;"><?php echo esc_html((string)$without_a); ?></td>
                         </tr>
                         <?php endif; ?>
                         <tr style="background-color: #e8f5e9; border-top: 2px solid #4caf50;">
@@ -553,13 +554,13 @@ class Skwirrel_WC_Sync_Admin_Settings {
                                         <span style="color: #d63638; font-weight: bold;">✗ <?php esc_html_e('Mislukt', 'skwirrel-pim-wp-sync'); ?></span>
                                     <?php endif; ?>
                                 </td>
-                                <td style="text-align: right;"><span style="color: #00a32a;"><?php echo $created; ?></span></td>
-                                <td style="text-align: right;"><span style="color: #007cba;"><?php echo $updated; ?></span></td>
-                                <td style="text-align: right;"><span style="color: #d63638;"><?php echo $failed; ?></span></td>
-                                <td style="text-align: right;"><span style="color: #856404;"><?php echo $trashed_h; ?></span></td>
-                                <td style="text-align: right;"><?php echo $with_attrs; ?></td>
-                                <td style="text-align: right;"><?php echo $without_attrs; ?></td>
-                                <td style="text-align: right;"><strong><?php echo $total; ?></strong></td>
+                                <td style="text-align: right;"><span style="color: #00a32a;"><?php echo esc_html((string)$created); ?></span></td>
+                                <td style="text-align: right;"><span style="color: #007cba;"><?php echo esc_html((string)$updated); ?></span></td>
+                                <td style="text-align: right;"><span style="color: #d63638;"><?php echo esc_html((string)$failed); ?></span></td>
+                                <td style="text-align: right;"><span style="color: #856404;"><?php echo esc_html((string)$trashed_h); ?></span></td>
+                                <td style="text-align: right;"><?php echo esc_html((string)$with_attrs); ?></td>
+                                <td style="text-align: right;"><?php echo esc_html((string)$without_attrs); ?></td>
+                                <td style="text-align: right;"><strong><?php echo esc_html((string)$total); ?></strong></td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
@@ -570,36 +571,43 @@ class Skwirrel_WC_Sync_Admin_Settings {
     }
 
     private function maybe_show_notices(): void {
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- display-only redirect parameters
         if (isset($_GET['test'])) {
+            // phpcs:ignore WordPress.Security.NonceVerification.Recommended
             if ($_GET['test'] === 'ok') {
                 echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__('Verbinding test geslaagd.', 'skwirrel-pim-wp-sync') . '</p></div>';
             } else {
+                // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- display-only redirect parameter
                 $msg = isset($_GET['message']) ? sanitize_text_field(wp_unslash($_GET['message'])) : __('Verbinding mislukt.', 'skwirrel-pim-wp-sync');
                 echo '<div class="notice notice-error is-dismissible"><p>' . esc_html($msg) . '</p></div>';
             }
         }
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- display-only redirect parameter
         if (isset($_GET['sync']) && $_GET['sync'] === 'queued') {
             echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__('Sync is gestart op de achtergrond. De resultaten verschijnen hier zodra de sync is voltooid. Vernieuw de pagina om de status te controleren.', 'skwirrel-pim-wp-sync') . '</p></div>';
         }
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- display-only redirect parameter
         if (isset($_GET['sync']) && $_GET['sync'] === 'done') {
             $last = Skwirrel_WC_Sync_Service::get_last_result();
             if ($last && $last['success']) {
                 $with_a = (int) ($last['with_attributes'] ?? 0);
                 $without_a = (int) ($last['without_attributes'] ?? 0);
                 $msg = sprintf(
-                    esc_html__('Sync voltooid. Aangemaakt: %d, Bijgewerkt: %d, Mislukt: %d', 'skwirrel-pim-wp-sync'),
+                    /* translators: %1$d = created count, %2$d = updated count, %3$d = failed count */
+                    esc_html__('Sync voltooid. Aangemaakt: %1$d, Bijgewerkt: %2$d, Mislukt: %3$d', 'skwirrel-pim-wp-sync'),
                     (int) $last['created'],
                     (int) $last['updated'],
                     (int) $last['failed']
                 );
                 if ($with_a + $without_a > 0) {
                     $msg .= ' ' . sprintf(
-                        esc_html__('(met kenmerken: %d, zonder: %d)', 'skwirrel-pim-wp-sync'),
+                        /* translators: %1$d = count with attributes, %2$d = count without attributes */
+                        esc_html__('(met kenmerken: %1$d, zonder: %2$d)', 'skwirrel-pim-wp-sync'),
                         $with_a,
                         $without_a
                     );
                 }
-                echo '<div class="notice notice-success is-dismissible"><p>' . $msg . '</p></div>';
+                echo '<div class="notice notice-success is-dismissible"><p>' . esc_html( $msg ) . '</p></div>';
             } else {
                 echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__('Sync voltooid. Controleer de logs voor details.', 'skwirrel-pim-wp-sync') . '</p></div>';
             }
