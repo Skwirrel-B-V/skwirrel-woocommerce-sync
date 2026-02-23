@@ -2,6 +2,37 @@
 
 All notable changes to Skwirrel PIM Sync will be documented in this file.
 
+## [1.0.1] - 2026-02-23
+
+- Rename plugin to **Skwirrel PIM Sync** across all files and references. (58fc67f)
+- Add extensive unit tests for MediaImporter, ProductMapper, and related components (9d7c985)
+- Add composer files and vendor dir to .distignore (87f3be8)
+- Add WordPress.org auto-deploy on main branch releases (ac8adfd)
+- Add automated versioning, tagging, and release workflow (fecc155)
+- Bump version to 1.1.2 (85c3240)
+- Fix dubbele producten bij sync: 3-stap lookup chain + SKU conflict preventie (9bf11f7)
+- Migreer test-framework van PHPUnit naar Pest PHP (270fa0d)
+- Herschrijf CHANGELOG.md als versie-gebaseerde v1.1.1 release (a4b89b7)
+- Update README.md voor v1.1.1 (2ef3785)
+- Voeg .claude/commands/ toe voor workflow automatisering (37d293d)
+- Voeg PHPUnit test-framework en eerste tests toe (9dfbbdf)
+- Voeg PHP_CodeSniffer configuratie toe (6dd2405)
+- Voeg PHPStan static analysis configuratie toe (7b11855)
+- Voeg .claude/settings.json toe met tool permissions (b9855bf)
+- Voeg .claude/rules/ toe voor progressive disclosure (cb6c263)
+- Update CLAUDE.md met ontbrekende documentatie (a2b32fe)
+- Voeg .editorconfig toe voor consistente code-opmaak (b238b4c)
+- Versie-bump naar 1.1.1 + WooCommerce 10.5 compatibiliteit (ca9a916)
+- Voeg implementatieplan toe voor v1.1.1 verbeteringen (98a0a89)
+- chore: v bump (625516a)
+- Voeg CHANGELOG.md toe met overzicht van alle wijzigingen t.o.v. main (bf6e718)
+- Fix purge-logica: SQL veiligheid, categorie-bescherming, betere logging (038bf06)
+- Implementeer data-purge sync en verwijderbescherming (Skwirrel is leidend) (851ae51)
+- Add translation files for Skwirrel WooCommerce Sync (POT, de_DE, en_GB, en_US) (5b46b21)
+- Add translation files for Skwirrel WooCommerce Sync (POT, de_DE, en_GB, en_US) (29c215d)
+- Add category syncing and filters for more precise product synchronization (3667952)
+- first commit (46f5cae)
+
 ## [1.1.2] - 2026-02-22
 
 - Bump version to 1.1.2
