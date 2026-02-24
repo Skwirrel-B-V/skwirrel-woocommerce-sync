@@ -2,6 +2,10 @@
 
 All notable changes to Skwirrel PIM Sync will be documented in this file.
 
+## [1.2.0] - 2026-02-24
+
+- Add purge functionality to delete Skwirrel products, categories, and attributes with background support. (9fdb592)
+
 ## [1.1.0] - 2026-02-24
 
 - No notable changes
