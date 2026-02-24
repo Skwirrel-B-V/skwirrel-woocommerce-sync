@@ -2,6 +2,19 @@
 
 All notable changes to Skwirrel PIM Sync will be documented in this file.
 
+## [1.0.2] - 2026-02-24
+
+- Bump version to 1.2.3 in preparation for release. (0b7b730)
+- chore: release 1.0.5 [skip ci] (f336e39)
+- Bump version to 1.2.3 and add `phpcs:ignore` comments to address coding standard violations. (52c7502)
+- chore: release 1.0.4 [skip ci] (88cfbf5)
+- Bump version to 1.2.2 in preparation for release. (b68e9c8)
+- Bump version to 1.2.2 in preparation for release. (5fb7ec0)
+- chore: release 1.0.3 [skip ci] (c6c735a)
+- Update text domain references to `skwirrel-pim-sync` in preparation for rebranding. (12f0989)
+- chore: release 1.0.2 [skip ci] (0b9dc4f)
+- Update text domain and constants to reflect rebranding to "Skwirrel PIM Sync", and bump version to 1.2.0. (4576f63)
+
 ## [1.0.5] - 2026-02-23
 
 - Bump version to 1.2.3 and add `phpcs:ignore` comments to address coding standard violations. (52c7502)
