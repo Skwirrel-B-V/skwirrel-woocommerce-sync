@@ -77,6 +77,29 @@ class Skwirrel_WC_Sync_Service {
             'include_contexts' => [1],
         ];
 
+        // Custom classes: product-level
+        $sync_cc = !empty($options['sync_custom_classes']);
+        $sync_ti_cc = !empty($options['sync_trade_item_custom_classes']);
+        if ($sync_cc) {
+            $get_params['include_custom_classes'] = true;
+            // Whitelist: pass specific IDs to the API for efficient filtering
+            $cc_filter_mode = $options['custom_class_filter_mode'] ?? '';
+            $cc_raw = $options['custom_class_filter_ids'] ?? '';
+            $cc_parsed = Skwirrel_WC_Sync_Product_Mapper::parse_custom_class_filter($cc_raw);
+            if ($cc_filter_mode === 'whitelist' && !empty($cc_parsed['ids'])) {
+                $get_params['include_custom_class_id'] = $cc_parsed['ids'];
+            }
+        }
+        if ($sync_ti_cc) {
+            $get_params['include_trade_item_custom_classes'] = true;
+            $cc_filter_mode = $cc_filter_mode ?? ($options['custom_class_filter_mode'] ?? '');
+            $cc_raw = $cc_raw ?? ($options['custom_class_filter_ids'] ?? '');
+            $cc_parsed = $cc_parsed ?? Skwirrel_WC_Sync_Product_Mapper::parse_custom_class_filter($cc_raw);
+            if ($cc_filter_mode === 'whitelist' && !empty($cc_parsed['ids'])) {
+                $get_params['include_trade_item_custom_class_id'] = $cc_parsed['ids'];
+            }
+        }
+
         // Collection ID filter: only sync products from these collections (empty = all)
         // Note: exact API parameter name may need adjustment — logged for debugging
         if (!empty($collection_ids)) {
@@ -487,6 +510,38 @@ class Skwirrel_WC_Sync_Service {
         }
 
         $attrs = $this->mapper->get_attributes($product);
+
+        // Merge custom class attributes (if enabled)
+        $cc_options = $this->get_options();
+        $cc_text_meta = [];
+        if (!empty($cc_options['sync_custom_classes']) || !empty($cc_options['sync_trade_item_custom_classes'])) {
+            $cc_filter_mode = $cc_options['custom_class_filter_mode'] ?? '';
+            $cc_parsed = Skwirrel_WC_Sync_Product_Mapper::parse_custom_class_filter($cc_options['custom_class_filter_ids'] ?? '');
+            $include_ti = !empty($cc_options['sync_trade_item_custom_classes']);
+
+            $cc_attrs = $this->mapper->get_custom_class_attributes(
+                $product,
+                $include_ti,
+                $cc_filter_mode,
+                $cc_parsed['ids'],
+                $cc_parsed['codes']
+            );
+            // Merge: custom class attrs after ETIM attrs (ETIM takes precedence on name conflict)
+            foreach ($cc_attrs as $name => $value) {
+                if (!isset($attrs[$name])) {
+                    $attrs[$name] = $value;
+                }
+            }
+
+            $cc_text_meta = $this->mapper->get_custom_class_text_meta(
+                $product,
+                $include_ti,
+                $cc_filter_mode,
+                $cc_parsed['ids'],
+                $cc_parsed['codes']
+            );
+        }
+
         if (!empty($attrs)) {
             $wc_attrs = [];
             $position = 0;
@@ -526,6 +581,17 @@ class Skwirrel_WC_Sync_Service {
 
         $documents = $this->mapper->get_document_attachments($product, $id);
         update_post_meta($id, '_skwirrel_document_attachments', $documents);
+
+        // Save custom class text meta (T/B types)
+        if (!empty($cc_text_meta)) {
+            foreach ($cc_text_meta as $meta_key => $meta_value) {
+                update_post_meta($id, $meta_key, $meta_value);
+            }
+            $this->logger->verbose('Custom class text meta saved', [
+                'wc_id' => $id,
+                'meta_keys' => array_keys($cc_text_meta),
+            ]);
+        }
 
         $this->assign_categories($id, $product);
 
