@@ -622,6 +622,19 @@ class Skwirrel_WC_Sync_Product_Mapper {
         return $normalized;
     }
 
+    /**
+     * Resolve a human-readable label for an ETIM feature from its translations.
+     * Falls back to the raw etim_feature_code if no translation is found.
+     */
+    public function resolve_etim_feature_label(array $feature, string $lang = ''): string {
+        if ($lang === '') {
+            $lang = get_option('skwirrel_wc_sync_settings', [])['image_language'] ?? 'nl';
+        }
+        $trans = $this->normalize_etim_translations($feature['_etim_feature_translations'] ?? []);
+        $label = $this->pick_etim_translation($trans, $lang, 'etim_feature_description');
+        return $label !== '' ? $label : ((string) ($feature['etim_feature_code'] ?? ''));
+    }
+
     private function pick_etim_translation(array $translations, string $lang, string $field): string {
         foreach ($translations as $t) {
             $tlang = (string) ($t['language'] ?? '');

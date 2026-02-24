@@ -38,6 +38,8 @@ class Skwirrel_WC_Sync_Admin_Settings {
 
     private const BG_SYNC_ACTION = 'skwirrel_wc_sync_background';
     private const BG_SYNC_TRANSIENT = 'skwirrel_wc_sync_bg_token';
+    private const BG_PURGE_ACTION = 'skwirrel_wc_sync_purge_all';
+    private const BG_PURGE_TRANSIENT = 'skwirrel_wc_sync_purge_token';
 
     private function __construct() {
         add_action('admin_menu', [$this, 'add_menu'], 99);
@@ -47,6 +49,9 @@ class Skwirrel_WC_Sync_Admin_Settings {
         add_action('admin_enqueue_scripts', [$this, 'enqueue_assets']);
         add_action('wp_ajax_' . self::BG_SYNC_ACTION, [$this, 'handle_background_sync']);
         add_action('wp_ajax_nopriv_' . self::BG_SYNC_ACTION, [$this, 'handle_background_sync']);
+        add_action('admin_post_skwirrel_wc_sync_purge', [$this, 'handle_purge_now']);
+        add_action('wp_ajax_' . self::BG_PURGE_ACTION, [$this, 'handle_background_purge']);
+        add_action('wp_ajax_nopriv_' . self::BG_PURGE_ACTION, [$this, 'handle_background_purge']);
     }
 
     public function add_menu(): void {
@@ -220,6 +225,220 @@ class Skwirrel_WC_Sync_Admin_Settings {
         wp_die('', 200);
     }
 
+    public function handle_purge_now(): void {
+        if (!current_user_can('manage_woocommerce')) {
+            wp_die(esc_html__('Geen toegang.', 'skwirrel-pim-wp-sync'));
+        }
+        check_admin_referer('skwirrel_wc_sync_purge', '_wpnonce');
+
+        $permanent = !empty($_POST['skwirrel_purge_empty_trash']);
+        $mode = $permanent ? 'delete' : 'trash';
+
+        $token = bin2hex(random_bytes(16));
+        set_transient(self::BG_PURGE_TRANSIENT . '_' . $token, $mode, 120);
+
+        $url = add_query_arg([
+            'action' => self::BG_PURGE_ACTION,
+            'token' => $token,
+        ], admin_url('admin-ajax.php'));
+
+        $redirect = add_query_arg([
+            'page' => self::PAGE_SLUG,
+            'purge' => 'queued',
+        ], admin_url('admin.php'));
+
+        wp_safe_redirect($redirect);
+
+        if (function_exists('fastcgi_finish_request')) {
+            fastcgi_finish_request();
+        }
+
+        wp_remote_post($url, [
+            'blocking' => false,
+            'timeout' => 0.01,
+            // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- WordPress core filter
+            'sslverify' => apply_filters('https_local_ssl_verify', false),
+        ]);
+
+        exit;
+    }
+
+    public function handle_background_purge(): void {
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- uses transient-based token instead of nonce
+        $token = isset($_REQUEST['token']) ? sanitize_text_field(wp_unslash($_REQUEST['token'])) : '';
+        if (empty($token) || strlen($token) !== 32 || !ctype_xdigit($token)) {
+            wp_die('Invalid request', 403);
+        }
+        $mode = get_transient(self::BG_PURGE_TRANSIENT . '_' . $token);
+        if ($mode === false) {
+            wp_die('Invalid or expired token', 403);
+        }
+        delete_transient(self::BG_PURGE_TRANSIENT . '_' . $token);
+
+        $permanent = ($mode === 'delete');
+        $this->purge_all_skwirrel_products($permanent);
+
+        wp_die('', 200);
+    }
+
+    private function purge_all_skwirrel_products(bool $permanent): void {
+        $logger = new Skwirrel_WC_Sync_Logger();
+        $mode_label = $permanent ? 'permanent delete' : 'trash';
+        $logger->info("Purge all Skwirrel products started (mode: {$mode_label})");
+
+        global $wpdb;
+
+        // --- Step 1: Delete Skwirrel media attachments ---
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- bulk purge operation
+        $attachment_ids = $wpdb->get_col(
+            "SELECT DISTINCT p.ID FROM {$wpdb->posts} p
+            INNER JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id
+            WHERE p.post_type = 'attachment'
+            AND pm.meta_key = '_skwirrel_source_url'"
+        );
+
+        $attachments_deleted = 0;
+        if (!empty($attachment_ids)) {
+            $logger->info('Purge: ' . count($attachment_ids) . ' Skwirrel-media-bestanden gevonden, verwijderen...');
+            foreach ($attachment_ids as $attachment_id) {
+                wp_delete_attachment((int) $attachment_id, true);
+                ++$attachments_deleted;
+            }
+            $logger->info("Purge: {$attachments_deleted} media-bestanden verwijderd.");
+        }
+
+        // --- Step 2: Find products and collect their category term IDs ---
+        $post_statuses = $permanent
+            ? "'publish','draft','pending','private','trash'"
+            : "'publish','draft','pending','private'";
+
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- bulk purge operation
+        $product_ids = $wpdb->get_col(
+            "SELECT DISTINCT p.ID FROM {$wpdb->posts} p
+            INNER JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id
+            WHERE p.post_type IN ('product', 'product_variation')
+            AND p.post_status IN ({$post_statuses})
+            AND pm.meta_key IN ('_skwirrel_external_id', '_skwirrel_grouped_product_id')"
+        );
+
+        // Collect category term IDs assigned to Skwirrel products BEFORE deleting them.
+        // This catches categories without _skwirrel_category_id meta (e.g. from _product_groups fallback).
+        $skwirrel_cat_term_ids = [];
+        if (!empty($product_ids)) {
+            $ids_csv = implode(',', array_map('intval', $product_ids));
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- bulk purge operation
+            $skwirrel_cat_term_ids = $wpdb->get_col(
+                "SELECT DISTINCT tt.term_id FROM {$wpdb->term_relationships} tr
+                INNER JOIN {$wpdb->term_taxonomy} tt ON tr.term_taxonomy_id = tt.term_taxonomy_id AND tt.taxonomy = 'product_cat'
+                WHERE tr.object_id IN ({$ids_csv})" // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- IDs are cast to int above
+            );
+        }
+
+        // Also collect categories with _skwirrel_category_id meta (may include categories not assigned to any current product)
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- bulk purge operation
+        $meta_cat_term_ids = $wpdb->get_col(
+            "SELECT tm.term_id FROM {$wpdb->termmeta} tm
+            INNER JOIN {$wpdb->term_taxonomy} tt ON tm.term_id = tt.term_id AND tt.taxonomy = 'product_cat'
+            WHERE tm.meta_key = '_skwirrel_category_id' AND tm.meta_value != ''"
+        );
+
+        $all_cat_term_ids = array_unique(array_map('intval', array_merge($skwirrel_cat_term_ids, $meta_cat_term_ids)));
+
+        // --- Step 3: Delete products ---
+        $deleted = 0;
+        if (!empty($product_ids)) {
+            $count = count($product_ids);
+            $logger->info("Purge: {$count} Skwirrel-producten gevonden, verwerken...");
+
+            foreach ($product_ids as $product_id) {
+                $product_id = (int) $product_id;
+
+                if ($permanent) {
+                    // Delete variations first for variable products
+                    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- bulk purge operation
+                    $children = $wpdb->get_col(
+                        $wpdb->prepare(
+                            "SELECT ID FROM {$wpdb->posts} WHERE post_parent = %d AND post_type = 'product_variation'",
+                            $product_id
+                        )
+                    );
+                    foreach ($children as $child_id) {
+                        wp_delete_post((int) $child_id, true);
+                    }
+                    wp_delete_post($product_id, true);
+                } else {
+                    $product = wc_get_product($product_id);
+                    if ($product) {
+                        $product->set_status('trash');
+                        $product->save();
+                    }
+                }
+                ++$deleted;
+            }
+        }
+
+        $logger->info("Purge: {$deleted} producten verwerkt (mode: {$mode_label})");
+
+        // --- Step 4: Delete Skwirrel-related categories ---
+        // Skip the default WooCommerce "Uncategorized" category.
+        $default_cat_id = (int) get_option('default_product_cat', 0);
+        $categories_deleted = 0;
+        if (!empty($all_cat_term_ids)) {
+            $logger->info('Purge: ' . count($all_cat_term_ids) . ' Skwirrel-categorieën gevonden, verwijderen...');
+            foreach ($all_cat_term_ids as $term_id) {
+                if ($term_id === $default_cat_id) {
+                    continue;
+                }
+                $result = wp_delete_term($term_id, 'product_cat');
+                if ($result === true) {
+                    ++$categories_deleted;
+                }
+            }
+            $logger->info("Purge: {$categories_deleted} categorieën verwijderd.");
+        }
+
+        // --- Step 5: Delete Skwirrel-created attribute taxonomies ---
+        // Matches: etim_* (all ETIM-based attributes) and variant (fallback attribute)
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- bulk purge operation
+        $attribute_rows = $wpdb->get_results(
+            "SELECT attribute_id, attribute_name FROM {$wpdb->prefix}woocommerce_attribute_taxonomies
+            WHERE attribute_name LIKE 'etim\\_%'
+            OR attribute_name = 'variant'"
+        );
+
+        $attributes_deleted = 0;
+        if (!empty($attribute_rows)) {
+            $logger->info('Purge: ' . count($attribute_rows) . ' Skwirrel-attributen gevonden, verwijderen...');
+            foreach ($attribute_rows as $attr) {
+                if (function_exists('wc_delete_attribute')) {
+                    wc_delete_attribute((int) $attr->attribute_id);
+                }
+                ++$attributes_deleted;
+            }
+            delete_transient('wc_attribute_taxonomies');
+            $logger->info("Purge: {$attributes_deleted} attributen verwijderd.");
+        }
+
+        // --- Step 6: Reset sync state options ---
+        delete_option('skwirrel_wc_sync_last_sync');
+        delete_option('skwirrel_wc_sync_last_result');
+        delete_option('skwirrel_wc_sync_history');
+        delete_option('skwirrel_wc_sync_force_full_sync');
+        $logger->info('Purge: sync-status opties gereset.');
+
+        // --- Step 7: Store purge result ---
+        $logger->info("Purge voltooid: {$deleted} producten, {$attachments_deleted} media, {$categories_deleted} categorieën, {$attributes_deleted} attributen (mode: {$mode_label})");
+
+        update_option('skwirrel_wc_sync_last_purge', [
+            'timestamp' => time(),
+            'mode' => $mode_label,
+            'products' => $deleted,
+            'attachments' => $attachments_deleted,
+            'categories' => $categories_deleted,
+            'attributes' => $attributes_deleted,
+        ], false);
+    }
+
     public function enqueue_assets(string $hook): void {
         if (strpos($hook, self::PAGE_SLUG) === false) {
             return;
@@ -244,7 +463,10 @@ class Skwirrel_WC_Sync_Admin_Settings {
 
         ?>
         <div class="wrap skwirrel-sync-wrap">
-            <h1><?php esc_html_e('Skwirrel PIM Sync', 'skwirrel-pim-wp-sync'); ?></h1>
+            <h1>
+                <?php esc_html_e('Skwirrel PIM Sync', 'skwirrel-pim-wp-sync'); ?>
+                <a href="<?php echo esc_url(wp_nonce_url(admin_url('admin-post.php?action=skwirrel_wc_sync_run'), 'skwirrel_wc_sync_run', '_wpnonce')); ?>" class="page-title-action"><?php esc_html_e('Sync nu', 'skwirrel-pim-wp-sync'); ?></a>
+            </h1>
 
             <form method="post" action="options.php" id="skwirrel-sync-settings-form">
                 <?php wp_nonce_field('options-options'); ?>
@@ -567,6 +789,44 @@ class Skwirrel_WC_Sync_Admin_Settings {
                     </tbody>
                 </table>
             <?php endif; ?>
+
+            <div class="skwirrel-danger-zone">
+                <h2><?php esc_html_e('Gevarenzone', 'skwirrel-pim-wp-sync'); ?></h2>
+                <p><?php esc_html_e('Verwijder alle producten die door Skwirrel zijn aangemaakt of gesynchroniseerd. Deze actie kan niet ongedaan worden gemaakt als je de prullenbak leegt.', 'skwirrel-pim-wp-sync'); ?></p>
+                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" id="skwirrel-purge-form">
+                    <input type="hidden" name="action" value="skwirrel_wc_sync_purge" />
+                    <?php wp_nonce_field('skwirrel_wc_sync_purge', '_wpnonce'); ?>
+                    <p>
+                        <label>
+                            <input type="checkbox" name="skwirrel_purge_empty_trash" value="1" id="skwirrel-purge-permanent" />
+                            <?php esc_html_e('Ook de prullenbak legen (permanent verwijderen)', 'skwirrel-pim-wp-sync'); ?>
+                        </label>
+                    </p>
+                    <p>
+                        <?php submit_button(
+                            __('Alle Skwirrel-producten verwijderen', 'skwirrel-pim-wp-sync'),
+                            'delete skwirrel-danger-button',
+                            'submit',
+                            false
+                        ); ?>
+                    </p>
+                </form>
+            </div>
+            <script>
+            (function() {
+                var form = document.getElementById('skwirrel-purge-form');
+                if (!form) return;
+                form.addEventListener('submit', function(e) {
+                    var permanent = document.getElementById('skwirrel-purge-permanent').checked;
+                    var msg = permanent
+                        ? <?php echo wp_json_encode(__('WAARSCHUWING: Alle Skwirrel-producten worden PERMANENT verwijderd. Dit kan niet ongedaan worden gemaakt!\n\nWeet je het zeker?', 'skwirrel-pim-wp-sync')); ?>
+                        : <?php echo wp_json_encode(__('Alle Skwirrel-producten worden naar de prullenbak verplaatst.\n\nWeet je het zeker?', 'skwirrel-pim-wp-sync')); ?>;
+                    if (!confirm(msg)) {
+                        e.preventDefault();
+                    }
+                });
+            })();
+            </script>
         </div>
         <?php
     }
@@ -586,6 +846,10 @@ class Skwirrel_WC_Sync_Admin_Settings {
         // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- display-only redirect parameter
         if (isset($_GET['sync']) && $_GET['sync'] === 'queued') {
             echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__('Sync is gestart op de achtergrond. De resultaten verschijnen hier zodra de sync is voltooid. Vernieuw de pagina om de status te controleren.', 'skwirrel-pim-wp-sync') . '</p></div>';
+        }
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- display-only redirect parameter
+        if (isset($_GET['purge']) && $_GET['purge'] === 'queued') {
+            echo '<div class="notice notice-warning is-dismissible"><p>' . esc_html__('Purge is gestart op de achtergrond. Alle Skwirrel-producten, geïmporteerde media, categorieën en attributen worden verwijderd. Vernieuw de pagina om de status te controleren.', 'skwirrel-pim-wp-sync') . '</p></div>';
         }
         // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- display-only redirect parameter
         if (isset($_GET['sync']) && $_GET['sync'] === 'done') {

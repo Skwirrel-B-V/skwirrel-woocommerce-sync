@@ -703,6 +703,7 @@ class Skwirrel_WC_Sync_Service {
                     $etim_variation_codes[] = [
                         'code' => $f['etim_feature_code'],
                         'order' => (int) ($f['order'] ?? 999),
+                        'label' => $this->mapper->resolve_etim_feature_label($f),
                     ];
                 }
             }
@@ -714,7 +715,7 @@ class Skwirrel_WC_Sync_Service {
             foreach ($etim_variation_codes as $pos => $ef) {
                 $code = $ef['code'];
                 $etim_slug = $this->get_etim_attribute_slug($code);
-                $label = $this->get_etim_code_label($code);
+                $label = !empty($ef['label']) ? $ef['label'] : $code;
                 $tax = $this->ensure_product_attribute_exists($etim_slug, $label);
                 $attr = new WC_Product_Attribute();
                 $attr->set_id(wc_attribute_taxonomy_id_by_name($etim_slug));
@@ -856,9 +857,11 @@ class Skwirrel_WC_Sync_Service {
                 }
                 $slug = $this->get_etim_attribute_slug($code);
                 $tax = wc_attribute_taxonomy_name($slug);
+                $label = !empty($data['label']) ? $data['label'] : $code;
                 if (!taxonomy_exists($tax)) {
-                    $label = !empty($data['label']) ? $data['label'] : $this->get_etim_code_label($code);
                     $this->ensure_product_attribute_exists($slug, $label);
+                } else {
+                    $this->maybe_update_attribute_label($slug, $label);
                 }
                 $term = get_term_by('slug', $data['slug'], $tax) ?: get_term_by('name', $data['value'], $tax);
                 if (!$term || is_wp_error($term)) {
@@ -1171,20 +1174,37 @@ class Skwirrel_WC_Sync_Service {
     }
 
     private function get_etim_attribute_slug(string $code): string {
-        $map = [
-            'EF002671' => 'color',
-            'EF008078' => 'cups',
-        ];
-        $slug = $map[strtoupper($code)] ?? 'etim_' . strtolower($code);
+        $slug = 'etim_' . strtolower($code);
         return strlen($slug) > 28 ? substr($slug, 0, 28) : $slug;
     }
 
-    private function get_etim_code_label(string $code): string {
-        $map = [
-            'EF002671' => __('Colour', 'skwirrel-pim-wp-sync'),
-            'EF008078' => __('Number of cups', 'skwirrel-pim-wp-sync'),
-        ];
-        return $map[strtoupper($code)] ?? $code;
+    /**
+     * Update an existing WC attribute taxonomy label if the current label
+     * is a raw code (e.g. "EF000721") and we now have a proper label from the API.
+     */
+    private function maybe_update_attribute_label(string $slug, string $label): void {
+        if ($label === '' || preg_match('/^(EF|etim_)/i', $label)) {
+            return;
+        }
+        $attr_id = wc_attribute_taxonomy_id_by_name($slug);
+        if (!$attr_id) {
+            return;
+        }
+        global $wpdb;
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- attribute label update
+        $current_label = $wpdb->get_var($wpdb->prepare(
+            "SELECT attribute_label FROM {$wpdb->prefix}woocommerce_attribute_taxonomies WHERE attribute_id = %d",
+            $attr_id
+        ));
+        if ($current_label !== null && $current_label !== $label && preg_match('/^(EF|etim_)/i', $current_label)) {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- attribute label update
+            $wpdb->update(
+                $wpdb->prefix . 'woocommerce_attribute_taxonomies',
+                ['attribute_label' => $label],
+                ['attribute_id' => $attr_id]
+            );
+            delete_transient('wc_attribute_taxonomies');
+        }
     }
 
     private function ensure_product_attribute_exists(string $slug, string $label): string {
