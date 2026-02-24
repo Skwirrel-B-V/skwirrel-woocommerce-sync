@@ -1011,28 +1011,54 @@ class Skwirrel_WC_Sync_Service {
         $term_ids = [];
         $cat_id_meta = Skwirrel_WC_Sync_Product_Mapper::CATEGORY_ID_META;
 
+        // Build lookup: skwirrel_id → category entry (for parent resolution)
+        $by_skwirrel_id = [];
         foreach ($categories as $cat) {
+            if ($cat['id'] !== null) {
+                $by_skwirrel_id[$cat['id']] = $cat;
+            }
+        }
+
+        // Resolve the full tree in topological order (roots first).
+        // skwirrel_id → WC term ID mapping built up as we go.
+        $resolved = []; // skwirrel_id => wc_term_id
+
+        // Recursive resolver — resolves parent chain before the category itself.
+        $resolve = function (array $cat) use (
+            &$resolve, &$resolved, &$term_ids,
+            $by_skwirrel_id, $tax, $cat_id_meta
+        ): int {
             $cat_id = $cat['id'] ?? null;
-            $cat_name = $cat['name'];
+
+            // Already resolved?
+            if ($cat_id !== null && isset($resolved[$cat_id])) {
+                return $resolved[$cat_id];
+            }
+
             $parent_id = $cat['parent_id'] ?? null;
-            $parent_name = $cat['parent_name'] ?? '';
             $wc_parent_term_id = 0;
 
-            // Resolve parent term first (if any)
-            if ($parent_name !== '' || $parent_id !== null) {
+            // Resolve parent first (if it exists in our tree)
+            if ($parent_id !== null && isset($by_skwirrel_id[$parent_id])) {
+                $wc_parent_term_id = $resolve($by_skwirrel_id[$parent_id]);
+            } elseif ($parent_id !== null || ($cat['parent_name'] ?? '') !== '') {
+                // Parent not in our tree — look up / create by ID+name
                 $wc_parent_term_id = $this->find_or_create_category_term(
                     $parent_id,
-                    $parent_name,
+                    $cat['parent_name'] ?? '',
                     $tax,
                     $cat_id_meta,
                     0
                 );
+                if ($wc_parent_term_id && $parent_id !== null) {
+                    $resolved[$parent_id] = $wc_parent_term_id;
+                }
             }
 
             // Resolve the category itself
             $wc_term_id = $this->find_or_create_category_term(
                 $cat_id,
-                $cat_name,
+                $cat['name'],
                 $tax,
                 $cat_id_meta,
                 $wc_parent_term_id
@@ -1040,11 +1066,20 @@ class Skwirrel_WC_Sync_Service {
 
             if ($wc_term_id) {
                 $term_ids[] = $wc_term_id;
-                // Include parent too
+                if ($cat_id !== null) {
+                    $resolved[$cat_id] = $wc_term_id;
+                }
+                // Include all ancestors in the product's terms
                 if ($wc_parent_term_id) {
                     $term_ids[] = $wc_parent_term_id;
                 }
             }
+
+            return $wc_term_id;
+        };
+
+        foreach ($categories as $cat) {
+            $resolve($cat);
         }
 
         $term_ids = array_unique(array_map('intval', $term_ids));

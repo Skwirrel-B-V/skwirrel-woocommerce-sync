@@ -746,6 +746,9 @@ class Skwirrel_WC_Sync_Product_Mapper {
      * Primary source: $product['_categories'] (when include_categories is enabled).
      * Fallback: $product['_product_groups'] (legacy behavior).
      *
+     * Walks the full _parent_category chain recursively so that the complete
+     * category tree (grandparents, great-grandparents, …) is included.
+     *
      * @return array<int, array{id: int|null, name: string, parent_id: int|null, parent_name: string}>
      */
     public function get_categories(array $product): array {
@@ -759,33 +762,10 @@ class Skwirrel_WC_Sync_Product_Mapper {
                 if (!is_array($cat)) {
                     continue;
                 }
-                $cat_id = $cat['category_id'] ?? $cat['product_category_id'] ?? $cat['id'] ?? null;
-                $name = $this->pick_category_translation($cat);
-                if ($name === '') {
-                    $name = (string) ($cat['category_name'] ?? $cat['product_category_name'] ?? $cat['name'] ?? '');
-                }
-                if ($name === '') {
-                    continue;
-                }
-                $parent_id = $cat['parent_category_id'] ?? $cat['parent_id'] ?? null;
-                $parent_name = '';
-                if (!empty($cat['_parent_category'])) {
-                    $parent_name = $this->pick_category_translation($cat['_parent_category']);
-                    if ($parent_name === '') {
-                        $parent_name = (string) ($cat['_parent_category']['category_name'] ?? $cat['_parent_category']['name'] ?? '');
-                    }
-                }
-                $parent_name = $parent_name ?: (string) ($cat['parent_category_name'] ?? $cat['parent_name'] ?? '');
 
-                if ($cat_id !== null) {
-                    $seen_ids[$cat_id] = true;
-                }
-                $categories[] = [
-                    'id' => $cat_id !== null ? (int) $cat_id : null,
-                    'name' => $name,
-                    'parent_id' => $parent_id !== null ? (int) $parent_id : null,
-                    'parent_name' => $parent_name,
-                ];
+                // Walk the _parent_category chain first so ancestors are added
+                // before the leaf category. This inserts from root → leaf.
+                $this->extract_ancestor_chain($cat, $categories, $seen_ids);
             }
         }
 
@@ -807,7 +787,7 @@ class Skwirrel_WC_Sync_Product_Mapper {
             }
         }
 
-        // Deduplicate by name
+        // Deduplicate by name (for entries without ID, or fallback source)
         $unique = [];
         $names_seen = [];
         foreach ($categories as $cat) {
@@ -828,6 +808,64 @@ class Skwirrel_WC_Sync_Product_Mapper {
         ]);
 
         return $unique;
+    }
+
+    /**
+     * Recursively walk the _parent_category chain and add each ancestor
+     * (root-first) plus the category itself to $categories.
+     *
+     * Deduplicates by Skwirrel category ID so that categories shared by
+     * multiple products or referenced as both leaf and ancestor appear once.
+     *
+     * @param array                $cat        Single category entry from the API
+     * @param array<int, array>    &$categories Accumulated category list (mutated)
+     * @param array<int|string, bool> &$seen_ids  Tracks already-added Skwirrel IDs (mutated)
+     */
+    private function extract_ancestor_chain(array $cat, array &$categories, array &$seen_ids): void {
+        $cat_id = $cat['category_id'] ?? $cat['product_category_id'] ?? $cat['id'] ?? null;
+        $name = $this->pick_category_translation($cat);
+        if ($name === '') {
+            $name = (string) ($cat['category_name'] ?? $cat['product_category_name'] ?? $cat['name'] ?? '');
+        }
+        if ($name === '') {
+            return;
+        }
+
+        $parent_id = $cat['parent_category_id'] ?? $cat['parent_id'] ?? null;
+        $parent_name = '';
+
+        // Recurse into _parent_category first (so ancestors are added root→leaf)
+        if (!empty($cat['_parent_category']) && is_array($cat['_parent_category'])) {
+            $this->extract_ancestor_chain($cat['_parent_category'], $categories, $seen_ids);
+            $parent_name = $this->pick_category_translation($cat['_parent_category']);
+            if ($parent_name === '') {
+                $parent_name = (string) ($cat['_parent_category']['category_name'] ?? $cat['_parent_category']['name'] ?? '');
+            }
+            // Ensure parent_id is set from the nested object if not on the current entry
+            if ($parent_id === null) {
+                $parent_id = $cat['_parent_category']['category_id']
+                    ?? $cat['_parent_category']['product_category_id']
+                    ?? $cat['_parent_category']['id']
+                    ?? null;
+            }
+        }
+        $parent_name = $parent_name ?: (string) ($cat['parent_category_name'] ?? $cat['parent_name'] ?? '');
+
+        // Skip if we already added this exact category (by ID)
+        if ($cat_id !== null && isset($seen_ids[$cat_id])) {
+            return;
+        }
+
+        if ($cat_id !== null) {
+            $seen_ids[$cat_id] = true;
+        }
+
+        $categories[] = [
+            'id' => $cat_id !== null ? (int) $cat_id : null,
+            'name' => $name,
+            'parent_id' => $parent_id !== null ? (int) $parent_id : null,
+            'parent_name' => $parent_name,
+        ];
     }
 
     /**
