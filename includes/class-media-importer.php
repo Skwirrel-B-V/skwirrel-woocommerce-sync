@@ -57,7 +57,7 @@ class Skwirrel_WC_Sync_Media_Importer {
 
         $image_info = @getimagesize($tmp);
         if ($image_info === false) {
-            @unlink($tmp);
+            wp_delete_file($tmp);
             $this->logger->warning('Downloaded file is not a valid image', ['url' => $url]);
             return 0;
         }
@@ -73,18 +73,18 @@ class Skwirrel_WC_Sync_Media_Importer {
 
         $upload_dir = wp_upload_dir();
         if ($upload_dir['error']) {
-            @unlink($tmp);
+            wp_delete_file($tmp);
             $this->logger->warning('Upload dir error', ['error' => $upload_dir['error']]);
             return 0;
         }
 
         $dest = $upload_dir['path'] . '/' . $filename;
         if (!copy($tmp, $dest)) {
-            @unlink($tmp);
+            wp_delete_file($tmp);
             $this->logger->warning('Failed to copy image to uploads', ['url' => $url]);
             return 0;
         }
-        @unlink($tmp);
+        wp_delete_file($tmp);
 
         $filetype = wp_check_filetype($filename, null);
         $label = $alt_caption ?: ($title ?: preg_replace('/\.[^.]+$/', '', $filename));
@@ -98,7 +98,7 @@ class Skwirrel_WC_Sync_Media_Importer {
 
         $id = wp_insert_attachment($attachment, $dest, $parent_id);
         if (is_wp_error($id)) {
-            @unlink($dest);
+            wp_delete_file($dest);
             $this->logger->warning('Failed to create attachment', ['url' => $url, 'error' => $id->get_error_message()]);
             return 0;
         }
@@ -148,7 +148,7 @@ class Skwirrel_WC_Sync_Media_Importer {
             return 0;
         }
 
-        $path = parse_url($url, PHP_URL_PATH);
+        $path = wp_parse_url($url, PHP_URL_PATH);
         $basename = $name ?: ($path ? basename($path) : '');
         $ext = $basename ? pathinfo($basename, PATHINFO_EXTENSION) : '';
         if (!is_string($ext) || !preg_match('/^[a-z0-9]{2,5}$/i', $ext)) {
@@ -158,17 +158,17 @@ class Skwirrel_WC_Sync_Media_Importer {
 
         $upload_dir = wp_upload_dir();
         if ($upload_dir['error']) {
-            @unlink($tmp);
+            wp_delete_file($tmp);
             return 0;
         }
 
         $dest = $upload_dir['path'] . '/' . sanitize_file_name($filename);
         if (!copy($tmp, $dest)) {
-            @unlink($tmp);
+            wp_delete_file($tmp);
             $this->logger->warning('Failed to copy file to uploads', ['url' => $url]);
             return 0;
         }
-        @unlink($tmp);
+        wp_delete_file($tmp);
 
         $filetype = wp_check_filetype($dest, null);
         $attachment = [
@@ -180,7 +180,7 @@ class Skwirrel_WC_Sync_Media_Importer {
 
         $id = wp_insert_attachment($attachment, $dest, $parent_id);
         if (is_wp_error($id)) {
-            @unlink($dest);
+            wp_delete_file($dest);
             $this->logger->warning('Failed to create attachment', ['url' => $url, 'error' => $id->get_error_message()]);
             return 0;
         }
@@ -202,7 +202,7 @@ class Skwirrel_WC_Sync_Media_Importer {
         if (filter_var($url, FILTER_VALIDATE_URL)) {
             return true;
         }
-        $parsed = parse_url($url);
+        $parsed = wp_parse_url($url);
         return isset($parsed['scheme'], $parsed['host'])
             && in_array(strtolower($parsed['scheme']), ['http', 'https'], true);
     }
@@ -243,7 +243,7 @@ class Skwirrel_WC_Sync_Media_Importer {
             return new WP_Error('http_' . $code, 'Not Found' === wp_remote_retrieve_response_message($response) ? 'Not Found' : 'HTTP ' . $code);
         }
         $body = wp_remote_retrieve_body($response);
-        $tmp = wp_tempnam(basename(parse_url($url, PHP_URL_PATH) ?: 'download'));
+        $tmp = wp_tempnam(basename(wp_parse_url($url, PHP_URL_PATH) ?: 'download'));
         if ($tmp === false || file_put_contents($tmp, $body) === false) {
             return new WP_Error('temp', 'Failed to write temp file');
         }
@@ -258,8 +258,8 @@ class Skwirrel_WC_Sync_Media_Importer {
         $posts = get_posts([
             'post_type' => 'attachment',
             'post_status' => 'any',
-            'meta_key' => self::META_SKWIRREL_HASH,
-            'meta_value' => $hash,
+            'meta_key' => self::META_SKWIRREL_HASH, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+            'meta_value' => $hash, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
             'posts_per_page' => 1,
             'fields' => 'ids',
         ]);

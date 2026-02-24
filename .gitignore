@@ -12,5 +12,18 @@ Thumbs.db
 # Debug
 debug-variations.php
 
+# Composer (dev stubs only, not shipped)
+vendor/
+composer.lock
+
+# Local config overrides
+phpstan.neon
+.phpcs.xml
+phpunit.xml
+
+# PHPUnit/Pest cache
+.phpunit.cache/
+.pest/
+
 # Node (if ever added)
 node_modules/

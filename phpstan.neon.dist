@@ -1,0 +1,14 @@
+parameters:
+  level: 6
+  paths:
+    - skwirrel-pim-wp-sync.php
+    - includes/
+  excludePaths:
+    - vendor/
+  scanDirectories:
+    - vendor/php-stubs/wordpress-stubs/
+    - vendor/php-stubs/woocommerce-stubs/
+  ignoreErrors:
+    # WordPress global functions not in stubs
+    - '#Function apply_filters invoked with#'
+    - '#Function do_action invoked with#'

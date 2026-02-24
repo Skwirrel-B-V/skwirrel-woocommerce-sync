@@ -1,7 +1,43 @@
-/* Skwirrel WooCommerce Sync - Admin styles */
+/* Skwirrel PIM Sync - Admin styles */
 .skwirrel-sync-wrap .form-table th {
     width: 200px;
 }
 .skwirrel-sync-wrap .widefat.striped th {
     width: 200px;
+}
+
+/* Verwijderwaarschuwing banner */
+.skwirrel-sync-delete-warning {
+    border-left-color: #ffba00;
+}
+.skwirrel-sync-delete-warning p:first-of-type {
+    margin-bottom: 4px;
+}
+.skwirrel-sync-delete-warning small {
+    color: #666;
+}
+
+/* Gevarenzone */
+.skwirrel-danger-zone {
+    margin-top: 30px;
+    padding: 15px 20px;
+    border: 1px solid #d63638;
+    border-left-width: 4px;
+    background: #fcf0f0;
+    border-radius: 4px;
+}
+.skwirrel-danger-zone h2 {
+    margin-top: 0;
+    color: #d63638;
+}
+.skwirrel-danger-button.button {
+    background: #d63638;
+    border-color: #b32d2e;
+    color: #fff;
+}
+.skwirrel-danger-button.button:hover,
+.skwirrel-danger-button.button:focus {
+    background: #b32d2e;
+    border-color: #8a2424;
+    color: #fff;
 }

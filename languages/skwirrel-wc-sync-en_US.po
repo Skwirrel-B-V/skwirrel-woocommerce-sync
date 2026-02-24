@@ -1,0 +1,330 @@
+# Translation file for Skwirrel PIM Sync - English (United States)
+# Copyright (C) 2024–2026 Skwirrel Sync
+# This file is distributed under the GPL v2 or later.
+msgid ""
+msgstr ""
+"Project-Id-Version: Skwirrel PIM Sync 1.0.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-02-19 20:28+0000\n"
+"PO-Revision-Date: 2026-02-19 20:28+0000\n"
+"Last-Translator: Skwirrel Sync <info@skwirrel.eu>\n"
+"Language-Team: English (United States)\n"
+"Language: en_US\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Skwirrel PIM Sync 1.0.0\n"
+"X-Domain: skwirrel-wc-sync\n"
+
+msgid "Skwirrel PIM Sync vereist WooCommerce om te functioneren."
+msgstr "Skwirrel PIM Sync requires WooCommerce to function."
+
+msgid "WooCommerce is vereist. <a href=\"%s\">Installeer WooCommerce</a> of <a href=\"%s\">activeer WooCommerce</a>."
+msgstr "WooCommerce is required. <a href=\"%s\">Install WooCommerce</a> or <a href=\"%s\">activate WooCommerce</a>."
+
+msgid "Skwirrel Sync"
+msgstr "Skwirrel Sync"
+
+msgid "Geen toegang."
+msgstr "Access denied."
+
+msgid "Skwirrel PIM Sync"
+msgstr "Skwirrel PIM Sync"
+
+msgid "JSON-RPC Endpoint URL"
+msgstr "JSON-RPC Endpoint URL"
+
+msgid "Volledige URL naar het Skwirrel JSON-RPC endpoint."
+msgstr "Full URL to the Skwirrel JSON-RPC endpoint."
+
+msgid "Authenticatie type"
+msgstr "Authentication type"
+
+msgid "Bearer token"
+msgstr "Bearer token"
+
+msgid "API static token (X-Skwirrel-Api-Token)"
+msgstr "API static token (X-Skwirrel-Api-Token)"
+
+msgid "Token"
+msgstr "Token"
+
+msgid "Token invoeren…"
+msgstr "Enter token…"
+
+msgid "Na opslaan wordt de token niet in platte tekst getoond."
+msgstr "After saving, the token will not be shown in plain text."
+
+msgid "Timeout (seconden)"
+msgstr "Timeout (seconds)"
+
+msgid "Aantal retries"
+msgstr "Number of retries"
+
+msgid "Sync interval"
+msgstr "Sync interval"
+
+msgid "Batch size"
+msgstr "Batch size"
+
+msgid "Producten per API-pagina (1–500)."
+msgstr "Products per API page (1–500)."
+
+msgid "Categorieën syncen"
+msgstr "Sync categories"
+
+msgid "Categorieën uit product_groups aanmaken en koppelen"
+msgstr "Create and link categories from product_groups"
+
+msgid "Grouped products syncen"
+msgstr "Sync grouped products"
+
+msgid "Grouped products ophalen via getGroupedProducts (producten binnen groep kunnen variable zijn)"
+msgstr "Fetch grouped products via getGroupedProducts (products within group can be variable)"
+
+msgid "Collectie ID's (filter)"
+msgstr "Collection IDs (filter)"
+
+msgid "bijv. 123, 456"
+msgstr "e.g. 123, 456"
+
+msgid "Comma-separated collectie ID's. Alleen producten uit deze collecties worden gesynchroniseerd. Leeg = alles synchroniseren."
+msgstr "Comma-separated collection IDs. Only products from these collections will be synchronized. Empty = sync everything."
+
+msgid "Afbeeldingen importeren"
+msgstr "Import images"
+
+msgid "Ja, naar media library"
+msgstr "Yes, to media library"
+
+msgid "Nee, overslaan"
+msgstr "No, skip"
+
+msgid "Als import naar media library faalt (bijv. door security plugin), kies dan \"Nee\" om afbeeldingen over te slaan."
+msgstr "If import to media library fails (e.g. due to security plugin), choose \"No\" to skip images."
+
+msgid "Contenttaal"
+msgstr "Content language"
+
+msgid "Anders…"
+msgstr "Other…"
+
+msgid "Taalcode voor alle teksten: afbeelding alt/caption, ETIM-attributen."
+msgstr "Language code for all texts: image alt/caption, ETIM attributes."
+
+msgid "API-talen (include_languages)"
+msgstr "API languages (include_languages)"
+
+msgid "Extra taalcodes (comma-separated):"
+msgstr "Additional language codes (comma-separated):"
+
+msgid "Selecteer de talen die de API moet meesturen voor product translations en ETIM."
+msgstr "Select the languages the API should include for product translations and ETIM."
+
+msgid "Uitgebreide logging"
+msgstr "Verbose logging"
+
+msgid "Log per product: bronnen, ETIM, attributen (zie WooCommerce → Status → Logs)"
+msgstr "Log per product: sources, ETIM, attributes (see WooCommerce → Status → Logs)"
+
+msgid "SKU veld"
+msgstr "SKU field"
+
+msgid "internal_product_code"
+msgstr "internal_product_code"
+
+msgid "manufacturer_product_code"
+msgstr "manufacturer_product_code"
+
+msgid "Instellingen opslaan"
+msgstr "Save settings"
+
+msgid "Acties"
+msgstr "Actions"
+
+msgid "Test verbinding"
+msgstr "Test connection"
+
+msgid "Sync nu"
+msgstr "Sync now"
+
+msgid "Bekijk logs"
+msgstr "View logs"
+
+msgid "Variatie-attributen debuggen"
+msgstr "Debug variation attributes"
+
+msgid "Als variaties \"Any Colour\" / \"Any Number of cups\" tonen in plaats van echte waarden:"
+msgstr "If variations show \"Any Colour\" / \"Any Number of cups\" instead of real values:"
+
+msgid "Voeg in wp-config.php toe: define('SKWIRREL_WC_SYNC_DEBUG_ETIM', true);"
+msgstr "Add to wp-config.php: define('SKWIRREL_WC_SYNC_DEBUG_ETIM', true);"
+
+msgid "Voer \"Sync nu\" uit."
+msgstr "Run \"Sync now\"."
+
+msgid "Bekijk wp-content/uploads/skwirrel-variation-debug.log"
+msgstr "Check wp-content/uploads/skwirrel-variation-debug.log"
+
+msgid "Controleer: etim_values_found leeg? → API-talen moet overeenkomen met getProducts (bijv. en, en-GB)."
+msgstr "Check: etim_values_found empty? → API languages must match getProducts (e.g. en, en-GB)."
+
+msgid "ATTR VERIFY FAIL in de log? → meta wordt niet correct weggeschreven; controleer wp_postmeta voor attribute_pa_color/attribute_pa_cups."
+msgstr "ATTR VERIFY FAIL in the log? → meta is not written correctly; check wp_postmeta for attribute_pa_color/attribute_pa_cups."
+
+msgid "Sync status"
+msgstr "Sync status"
+
+msgid "Laatste sync geslaagd"
+msgstr "Last sync succeeded"
+
+msgid "Laatste sync mislukt"
+msgstr "Last sync failed"
+
+msgid "Onbekend"
+msgstr "Unknown"
+
+msgid "Sync resultaten"
+msgstr "Sync results"
+
+msgid "Categorie"
+msgstr "Category"
+
+msgid "Aantal"
+msgstr "Count"
+
+msgid "Aangemaakt"
+msgstr "Created"
+
+msgid "Bijgewerkt"
+msgstr "Updated"
+
+msgid "Mislukt"
+msgstr "Failed"
+
+msgid "↳ Met kenmerken"
+msgstr "↳ With attributes"
+
+msgid "↳ Zonder kenmerken"
+msgstr "↳ Without attributes"
+
+msgid "Totaal verwerkt"
+msgstr "Total processed"
+
+msgid "Foutmelding:"
+msgstr "Error message:"
+
+msgid "Nog geen sync uitgevoerd. Klik op \"Nu synchroniseren\" om te beginnen."
+msgstr "No sync performed yet. Click \"Sync now\" to start."
+
+msgid "Sync geschiedenis"
+msgstr "Sync history"
+
+msgid "Datum & Tijd"
+msgstr "Date & Time"
+
+msgid "Status"
+msgstr "Status"
+
+msgid "Met kenm."
+msgstr "With attr."
+
+msgid "Zonder kenm."
+msgstr "Without attr."
+
+msgid "Totaal"
+msgstr "Total"
+
+msgid "Geslaagd"
+msgstr "Succeeded"
+
+msgid "Verbinding test geslaagd."
+msgstr "Connection test succeeded."
+
+msgid "Verbinding mislukt."
+msgstr "Connection failed."
+
+msgid "Sync is gestart op de achtergrond. De resultaten verschijnen hier zodra de sync is voltooid. Vernieuw de pagina om de status te controleren."
+msgstr "Sync has started in the background. Results will appear here once the sync is complete. Refresh the page to check the status."
+
+msgid "Sync voltooid. Aangemaakt: %d, Bijgewerkt: %d, Mislukt: %d"
+msgstr "Sync complete. Created: %d, Updated: %d, Failed: %d"
+
+msgid "(met kenmerken: %d, zonder: %d)"
+msgstr "(with attributes: %d, without: %d)"
+
+msgid "Sync voltooid. Controleer de logs voor details."
+msgstr "Sync complete. Check the logs for details."
+
+msgid "Product %s"
+msgstr "Product %s"
+
+msgid "Variant"
+msgstr "Variant"
+
+msgid "Colour"
+msgstr "Color"
+
+msgid "Number of cups"
+msgstr "Number of cups"
+
+msgid "Search %s"
+msgstr "Search %s"
+
+msgid "All %s"
+msgstr "All %s"
+
+msgid "Edit %s"
+msgstr "Edit %s"
+
+msgid "Update %s"
+msgstr "Update %s"
+
+msgid "Add new %s"
+msgstr "Add new %s"
+
+msgid "New %s"
+msgstr "New %s"
+
+msgid "Handleiding"
+msgstr "Manual"
+
+msgid "Datasheet"
+msgstr "Datasheet"
+
+msgid "Certificaat"
+msgstr "Certificate"
+
+msgid "Garantie"
+msgstr "Warranty"
+
+msgid "Overig document"
+msgstr "Other document"
+
+msgid "Documenten"
+msgstr "Documents"
+
+msgid "Skwirrel documenten"
+msgstr "Skwirrel documents"
+
+msgid "Geen documenten gekoppeld aan dit product."
+msgstr "No documents linked to this product."
+
+msgid "Bewerken"
+msgstr "Edit"
+
+msgid "Twee keer per dag"
+msgstr "Twice daily"
+
+msgid "Uitgeschakeld"
+msgstr "Disabled"
+
+msgid "Elk uur"
+msgstr "Hourly"
+
+msgid "Dagelijks"
+msgstr "Daily"
+
+msgid "Wekelijks"
+msgstr "Weekly"
+
