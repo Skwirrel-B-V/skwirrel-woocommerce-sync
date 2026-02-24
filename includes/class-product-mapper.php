@@ -17,6 +17,7 @@ class Skwirrel_WC_Sync_Product_Mapper {
     private const EXTERNAL_ID_META = '_skwirrel_external_id';
     private const PRODUCT_ID_META = '_skwirrel_product_id';
     private const SYNCED_AT_META = '_skwirrel_synced_at';
+    public const CATEGORY_ID_META = '_skwirrel_category_id';
 
     private Skwirrel_WC_Sync_Logger $logger;
     private Skwirrel_WC_Sync_Media_Importer $media_importer;
@@ -69,7 +70,7 @@ class Skwirrel_WC_Sync_Product_Mapper {
         if (filter_var($url, FILTER_VALIDATE_URL)) {
             return true;
         }
-        $parsed = parse_url($url);
+        $parsed = wp_parse_url($url);
         return isset($parsed['scheme'], $parsed['host'])
             && in_array(strtolower($parsed['scheme']), ['http', 'https'], true);
     }
@@ -336,7 +337,7 @@ class Skwirrel_WC_Sync_Product_Mapper {
             }
             $name = (string) ($att['file_name'] ?? $att['product_attachment_title'] ?? '');
             if ($name === '') {
-                $path = parse_url($url, PHP_URL_PATH);
+                $path = wp_parse_url($url, PHP_URL_PATH);
                 $name = $path ? basename($path) : 'Document';
             }
             $id = $this->media_importer->import_file($url, $name, $product_id);
@@ -359,11 +360,11 @@ class Skwirrel_WC_Sync_Product_Mapper {
     /** Document type codes from Skwirrel: MAN=Manual, DAT=Datasheet, etc. */
     private function get_document_type_label(string $code): string {
         $labels = [
-            'MAN' => __('Handleiding', 'skwirrel-wc-sync'),
-            'DAT' => __('Datasheet', 'skwirrel-wc-sync'),
-            'CER' => __('Certificaat', 'skwirrel-wc-sync'),
-            'WAR' => __('Garantie', 'skwirrel-wc-sync'),
-            'OTV' => __('Overig document', 'skwirrel-wc-sync'),
+            'MAN' => __('Handleiding', 'skwirrel-pim-wp-sync'),
+            'DAT' => __('Datasheet', 'skwirrel-pim-wp-sync'),
+            'CER' => __('Certificaat', 'skwirrel-pim-wp-sync'),
+            'WAR' => __('Garantie', 'skwirrel-pim-wp-sync'),
+            'OTV' => __('Overig document', 'skwirrel-pim-wp-sync'),
         ];
         return $labels[strtoupper($code)] ?? $code;
     }
@@ -728,18 +729,112 @@ class Skwirrel_WC_Sync_Product_Mapper {
     }
 
     /**
-     * Get category names from product groups.
+     * Get structured category data from product.
+     * Primary source: $product['_categories'] (when include_categories is enabled).
+     * Fallback: $product['_product_groups'] (legacy behavior).
+     *
+     * @return array<int, array{id: int|null, name: string, parent_id: int|null, parent_name: string}>
      */
-    public function get_category_names(array $product): array {
-        $names = [];
-        $groups = $product['_product_groups'] ?? [];
-        foreach ($groups as $g) {
-            $n = $g['product_group_name'] ?? '';
-            if (!empty($n)) {
-                $names[] = $n;
+    public function get_categories(array $product): array {
+        $categories = [];
+        $seen_ids = [];
+
+        // Primary source: _categories array (from include_categories API flag)
+        $raw_cats = $product['_categories'] ?? [];
+        if (!empty($raw_cats) && is_array($raw_cats)) {
+            foreach ($raw_cats as $cat) {
+                if (!is_array($cat)) {
+                    continue;
+                }
+                $cat_id = $cat['category_id'] ?? $cat['product_category_id'] ?? $cat['id'] ?? null;
+                $name = $this->pick_category_translation($cat);
+                if ($name === '') {
+                    $name = (string) ($cat['category_name'] ?? $cat['product_category_name'] ?? $cat['name'] ?? '');
+                }
+                if ($name === '') {
+                    continue;
+                }
+                $parent_id = $cat['parent_category_id'] ?? $cat['parent_id'] ?? null;
+                $parent_name = '';
+                if (!empty($cat['_parent_category'])) {
+                    $parent_name = $this->pick_category_translation($cat['_parent_category']);
+                    if ($parent_name === '') {
+                        $parent_name = (string) ($cat['_parent_category']['category_name'] ?? $cat['_parent_category']['name'] ?? '');
+                    }
+                }
+                $parent_name = $parent_name ?: (string) ($cat['parent_category_name'] ?? $cat['parent_name'] ?? '');
+
+                if ($cat_id !== null) {
+                    $seen_ids[$cat_id] = true;
+                }
+                $categories[] = [
+                    'id' => $cat_id !== null ? (int) $cat_id : null,
+                    'name' => $name,
+                    'parent_id' => $parent_id !== null ? (int) $parent_id : null,
+                    'parent_name' => $parent_name,
+                ];
             }
         }
-        return array_unique($names);
+
+        // Fallback: _product_groups (legacy — only group name, no ID)
+        if (empty($categories)) {
+            $groups = $product['_product_groups'] ?? [];
+            foreach ($groups as $g) {
+                $name = (string) ($g['product_group_name'] ?? '');
+                if ($name === '') {
+                    continue;
+                }
+                $group_id = $g['product_group_id'] ?? $g['id'] ?? null;
+                $categories[] = [
+                    'id' => $group_id !== null ? (int) $group_id : null,
+                    'name' => $name,
+                    'parent_id' => null,
+                    'parent_name' => '',
+                ];
+            }
+        }
+
+        // Deduplicate by name
+        $unique = [];
+        $names_seen = [];
+        foreach ($categories as $cat) {
+            $key = strtolower($cat['name']);
+            if (isset($names_seen[$key])) {
+                continue;
+            }
+            $names_seen[$key] = true;
+            $unique[] = $cat;
+        }
+
+        $product_id = $product['internal_product_code'] ?? $product['product_id'] ?? '?';
+        $this->logger->verbose('get_categories result', [
+            'product' => $product_id,
+            'source' => !empty($raw_cats) ? '_categories' : '_product_groups',
+            'count' => count($unique),
+            'names' => array_column($unique, 'name'),
+        ]);
+
+        return $unique;
+    }
+
+    /**
+     * Pick translated category name using existing pick_translation pattern.
+     */
+    private function pick_category_translation(array $cat): string {
+        $translations = $cat['_category_translations'] ?? $cat['_translations'] ?? [];
+        if (empty($translations) || !is_array($translations)) {
+            return '';
+        }
+        $t = $this->pick_translation($translations);
+        return (string) ($t['category_name'] ?? $t['product_category_name'] ?? $t['name'] ?? '');
+    }
+
+    /**
+     * Get category names from product groups (backward-compatible wrapper).
+     */
+    public function get_category_names(array $product): array {
+        $categories = $this->get_categories($product);
+        return array_values(array_unique(array_column($categories, 'name')));
     }
 
     public function get_external_id_meta_key(): string {

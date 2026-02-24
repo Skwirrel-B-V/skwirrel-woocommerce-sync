@@ -19,19 +19,19 @@ if (empty($documents)) {
 ?>
 <div class="skwirrel-product-documents">
     <ul class="skwirrel-documents-list">
-        <?php foreach ($documents as $doc) : ?>
+        <?php foreach ($documents as $skwirrel_doc) : ?>
             <?php
-            $url = wp_get_attachment_url($doc['attachment_id']);
-            $name = esc_html($doc['name']);
-            $label = esc_html($instance->get_type_label($doc['type_code']));
+            $skwirrel_doc_url   = wp_get_attachment_url( $skwirrel_doc['attachment_id'] );
+            $skwirrel_doc_name  = esc_html( $skwirrel_doc['name'] );
+            $skwirrel_doc_label = esc_html( $instance->get_type_label( $skwirrel_doc['type_code'] ) );
             ?>
             <li>
-                <?php if ($url) : ?>
-                    <a href="<?php echo esc_url($url); ?>" target="_blank" rel="noopener noreferrer"><?php echo $name; ?></a>
+                <?php if ( $skwirrel_doc_url ) : ?>
+                    <a href="<?php echo esc_url( $skwirrel_doc_url ); ?>" target="_blank" rel="noopener noreferrer"><?php echo esc_html( $skwirrel_doc_name ); ?></a>
                 <?php else : ?>
-                    <?php echo $name; ?>
+                    <?php echo esc_html( $skwirrel_doc_name ); ?>
                 <?php endif; ?>
-                <span class="document-type">(<?php echo $label; ?>)</span>
+                <span class="document-type">(<?php echo esc_html( $skwirrel_doc_label ); ?>)</span>
             </li>
         <?php endforeach; ?>
     </ul>
