@@ -77,6 +77,29 @@ class Skwirrel_WC_Sync_Service {
             'include_contexts' => [1],
         ];
 
+        // Custom classes: product-level
+        $sync_cc = !empty($options['sync_custom_classes']);
+        $sync_ti_cc = !empty($options['sync_trade_item_custom_classes']);
+        if ($sync_cc) {
+            $get_params['include_custom_classes'] = true;
+            // Whitelist: pass specific IDs to the API for efficient filtering
+            $cc_filter_mode = $options['custom_class_filter_mode'] ?? '';
+            $cc_raw = $options['custom_class_filter_ids'] ?? '';
+            $cc_parsed = Skwirrel_WC_Sync_Product_Mapper::parse_custom_class_filter($cc_raw);
+            if ($cc_filter_mode === 'whitelist' && !empty($cc_parsed['ids'])) {
+                $get_params['include_custom_class_id'] = $cc_parsed['ids'];
+            }
+        }
+        if ($sync_ti_cc) {
+            $get_params['include_trade_item_custom_classes'] = true;
+            $cc_filter_mode = $cc_filter_mode ?? ($options['custom_class_filter_mode'] ?? '');
+            $cc_raw = $cc_raw ?? ($options['custom_class_filter_ids'] ?? '');
+            $cc_parsed = $cc_parsed ?? Skwirrel_WC_Sync_Product_Mapper::parse_custom_class_filter($cc_raw);
+            if ($cc_filter_mode === 'whitelist' && !empty($cc_parsed['ids'])) {
+                $get_params['include_trade_item_custom_class_id'] = $cc_parsed['ids'];
+            }
+        }
+
         // Collection ID filter: only sync products from these collections (empty = all)
         // Note: exact API parameter name may need adjustment — logged for debugging
         if (!empty($collection_ids)) {
@@ -487,6 +510,38 @@ class Skwirrel_WC_Sync_Service {
         }
 
         $attrs = $this->mapper->get_attributes($product);
+
+        // Merge custom class attributes (if enabled)
+        $cc_options = $this->get_options();
+        $cc_text_meta = [];
+        if (!empty($cc_options['sync_custom_classes']) || !empty($cc_options['sync_trade_item_custom_classes'])) {
+            $cc_filter_mode = $cc_options['custom_class_filter_mode'] ?? '';
+            $cc_parsed = Skwirrel_WC_Sync_Product_Mapper::parse_custom_class_filter($cc_options['custom_class_filter_ids'] ?? '');
+            $include_ti = !empty($cc_options['sync_trade_item_custom_classes']);
+
+            $cc_attrs = $this->mapper->get_custom_class_attributes(
+                $product,
+                $include_ti,
+                $cc_filter_mode,
+                $cc_parsed['ids'],
+                $cc_parsed['codes']
+            );
+            // Merge: custom class attrs after ETIM attrs (ETIM takes precedence on name conflict)
+            foreach ($cc_attrs as $name => $value) {
+                if (!isset($attrs[$name])) {
+                    $attrs[$name] = $value;
+                }
+            }
+
+            $cc_text_meta = $this->mapper->get_custom_class_text_meta(
+                $product,
+                $include_ti,
+                $cc_filter_mode,
+                $cc_parsed['ids'],
+                $cc_parsed['codes']
+            );
+        }
+
         if (!empty($attrs)) {
             $wc_attrs = [];
             $position = 0;
@@ -526,6 +581,17 @@ class Skwirrel_WC_Sync_Service {
 
         $documents = $this->mapper->get_document_attachments($product, $id);
         update_post_meta($id, '_skwirrel_document_attachments', $documents);
+
+        // Save custom class text meta (T/B types)
+        if (!empty($cc_text_meta)) {
+            foreach ($cc_text_meta as $meta_key => $meta_value) {
+                update_post_meta($id, $meta_key, $meta_value);
+            }
+            $this->logger->verbose('Custom class text meta saved', [
+                'wc_id' => $id,
+                'meta_keys' => array_keys($cc_text_meta),
+            ]);
+        }
 
         $this->assign_categories($id, $product);
 
@@ -1011,28 +1077,54 @@ class Skwirrel_WC_Sync_Service {
         $term_ids = [];
         $cat_id_meta = Skwirrel_WC_Sync_Product_Mapper::CATEGORY_ID_META;
 
+        // Build lookup: skwirrel_id → category entry (for parent resolution)
+        $by_skwirrel_id = [];
         foreach ($categories as $cat) {
+            if ($cat['id'] !== null) {
+                $by_skwirrel_id[$cat['id']] = $cat;
+            }
+        }
+
+        // Resolve the full tree in topological order (roots first).
+        // skwirrel_id → WC term ID mapping built up as we go.
+        $resolved = []; // skwirrel_id => wc_term_id
+
+        // Recursive resolver — resolves parent chain before the category itself.
+        $resolve = function (array $cat) use (
+            &$resolve, &$resolved, &$term_ids,
+            $by_skwirrel_id, $tax, $cat_id_meta
+        ): int {
             $cat_id = $cat['id'] ?? null;
-            $cat_name = $cat['name'];
+
+            // Already resolved?
+            if ($cat_id !== null && isset($resolved[$cat_id])) {
+                return $resolved[$cat_id];
+            }
+
             $parent_id = $cat['parent_id'] ?? null;
-            $parent_name = $cat['parent_name'] ?? '';
             $wc_parent_term_id = 0;
 
-            // Resolve parent term first (if any)
-            if ($parent_name !== '' || $parent_id !== null) {
+            // Resolve parent first (if it exists in our tree)
+            if ($parent_id !== null && isset($by_skwirrel_id[$parent_id])) {
+                $wc_parent_term_id = $resolve($by_skwirrel_id[$parent_id]);
+            } elseif ($parent_id !== null || ($cat['parent_name'] ?? '') !== '') {
+                // Parent not in our tree — look up / create by ID+name
                 $wc_parent_term_id = $this->find_or_create_category_term(
                     $parent_id,
-                    $parent_name,
+                    $cat['parent_name'] ?? '',
                     $tax,
                     $cat_id_meta,
                     0
                 );
+                if ($wc_parent_term_id && $parent_id !== null) {
+                    $resolved[$parent_id] = $wc_parent_term_id;
+                }
             }
 
             // Resolve the category itself
             $wc_term_id = $this->find_or_create_category_term(
                 $cat_id,
-                $cat_name,
+                $cat['name'],
                 $tax,
                 $cat_id_meta,
                 $wc_parent_term_id
@@ -1040,11 +1132,20 @@ class Skwirrel_WC_Sync_Service {
 
             if ($wc_term_id) {
                 $term_ids[] = $wc_term_id;
-                // Include parent too
+                if ($cat_id !== null) {
+                    $resolved[$cat_id] = $wc_term_id;
+                }
+                // Include all ancestors in the product's terms
                 if ($wc_parent_term_id) {
                     $term_ids[] = $wc_parent_term_id;
                 }
             }
+
+            return $wc_term_id;
+        };
+
+        foreach ($categories as $cat) {
+            $resolve($cat);
         }
 
         $term_ids = array_unique(array_map('intval', $term_ids));

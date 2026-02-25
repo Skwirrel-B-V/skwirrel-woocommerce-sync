@@ -128,6 +128,16 @@ class Skwirrel_WC_Sync_Admin_Settings {
         $raw_collections = $input['collection_ids'] ?? '';
         $collection_parts = preg_split('/[\s,]+/', is_string($raw_collections) ? $raw_collections : '', -1, PREG_SPLIT_NO_EMPTY);
         $out['collection_ids'] = implode(', ', array_filter(array_map('trim', $collection_parts), 'is_numeric'));
+        // Custom classes
+        $out['sync_custom_classes'] = !empty($input['sync_custom_classes']);
+        $out['sync_trade_item_custom_classes'] = !empty($input['sync_trade_item_custom_classes']);
+        $out['custom_class_filter_mode'] = in_array($input['custom_class_filter_mode'] ?? '', ['whitelist', 'blacklist'], true)
+            ? $input['custom_class_filter_mode']
+            : '';
+        $raw_cc_filter = $input['custom_class_filter_ids'] ?? '';
+        $cc_parts = preg_split('/[\s,]+/', is_string($raw_cc_filter) ? $raw_cc_filter : '', -1, PREG_SPLIT_NO_EMPTY);
+        $out['custom_class_filter_ids'] = implode(', ', array_map('sanitize_text_field', array_map('trim', $cc_parts)));
+
         $out['verbose_logging'] = !empty($input['verbose_logging']);
         $out['purge_stale_products'] = !empty($input['purge_stale_products']);
         $out['show_delete_warning'] = !empty($input['show_delete_warning']);
@@ -535,6 +545,28 @@ class Skwirrel_WC_Sync_Admin_Settings {
                         <th scope="row"><?php esc_html_e('Grouped products syncen', 'skwirrel-pim-wp-sync'); ?></th>
                         <td>
                             <label><input type="checkbox" name="<?php echo esc_attr(self::OPTION_KEY); ?>[sync_grouped_products]" value="1" <?php checked(!empty($opts['sync_grouped_products'])); ?> /> <?php esc_html_e('Grouped products ophalen via getGroupedProducts (producten binnen groep kunnen variable zijn)', 'skwirrel-pim-wp-sync'); ?></label>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><?php esc_html_e('Custom classes syncen', 'skwirrel-pim-wp-sync'); ?></th>
+                        <td>
+                            <label><input type="checkbox" name="<?php echo esc_attr(self::OPTION_KEY); ?>[sync_custom_classes]" value="1" <?php checked(!empty($opts['sync_custom_classes'])); ?> /> <?php esc_html_e('Custom class attributen ophalen en als productkenmerken opslaan', 'skwirrel-pim-wp-sync'); ?></label>
+                            <br />
+                            <label style="margin-top:4px;display:inline-block;"><input type="checkbox" name="<?php echo esc_attr(self::OPTION_KEY); ?>[sync_trade_item_custom_classes]" value="1" <?php checked(!empty($opts['sync_trade_item_custom_classes'])); ?> /> <?php esc_html_e('Ook trade item custom classes meenemen', 'skwirrel-pim-wp-sync'); ?></label>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><label for="custom_class_filter_mode"><?php esc_html_e('Custom class filter', 'skwirrel-pim-wp-sync'); ?></label></th>
+                        <td>
+                            <?php $cc_mode = $opts['custom_class_filter_mode'] ?? ''; ?>
+                            <select id="custom_class_filter_mode" name="<?php echo esc_attr(self::OPTION_KEY); ?>[custom_class_filter_mode]">
+                                <option value="" <?php selected($cc_mode, ''); ?>><?php esc_html_e('Geen filter (alle classes)', 'skwirrel-pim-wp-sync'); ?></option>
+                                <option value="whitelist" <?php selected($cc_mode, 'whitelist'); ?>><?php esc_html_e('Whitelist (alleen deze classes)', 'skwirrel-pim-wp-sync'); ?></option>
+                                <option value="blacklist" <?php selected($cc_mode, 'blacklist'); ?>><?php esc_html_e('Blacklist (alles behalve deze classes)', 'skwirrel-pim-wp-sync'); ?></option>
+                            </select>
+                            <br />
+                            <input type="text" id="custom_class_filter_ids" name="<?php echo esc_attr(self::OPTION_KEY); ?>[custom_class_filter_ids]" value="<?php echo esc_attr($opts['custom_class_filter_ids'] ?? ''); ?>" class="regular-text" placeholder="<?php esc_attr_e('bijv. 12, 45, BUIS', 'skwirrel-pim-wp-sync'); ?>" style="margin-top:6px;" />
+                            <p class="description"><?php esc_html_e('Komma-gescheiden class ID\'s of codes. Numerieke waarden worden als ID gebruikt, overige als class code.', 'skwirrel-pim-wp-sync'); ?></p>
                         </td>
                     </tr>
                     <tr>

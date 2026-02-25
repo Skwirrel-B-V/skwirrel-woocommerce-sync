@@ -128,9 +128,138 @@ test('get_categories resolves parent from nested object', function () {
 
 	$result = $this->mapper->get_categories($product);
 
-	expect($result)->toHaveCount(1);
-	expect($result[0]['parent_id'])->toBe(20);
-	expect($result[0]['parent_name'])->toBe('Verlichting');
+	// Parent is extracted as a separate entry (ancestor chain unwound)
+	expect($result)->toHaveCount(2);
+	expect($result[0]['id'])->toBe(20);
+	expect($result[0]['name'])->toBe('Verlichting');
+	expect($result[0]['parent_id'])->toBeNull();
+	expect($result[1]['id'])->toBe(30);
+	expect($result[1]['name'])->toBe('LED Lampen');
+	expect($result[1]['parent_id'])->toBe(20);
+	expect($result[1]['parent_name'])->toBe('Verlichting');
+});
+
+test('get_categories extracts deep category tree from nested _parent_category', function () {
+	$product = [
+		'product_id' => 9,
+		'_categories' => [
+			[
+				'category_id' => 30,
+				'category_name' => 'LED Lampen',
+				'parent_category_id' => 20,
+				'_parent_category' => [
+					'category_id' => 20,
+					'category_name' => 'Verlichting',
+					'parent_category_id' => 10,
+					'_parent_category' => [
+						'category_id' => 10,
+						'category_name' => 'Bouwmaterialen',
+					],
+				],
+			],
+		],
+	];
+
+	$result = $this->mapper->get_categories($product);
+
+	// Full tree: root → middle → leaf
+	expect($result)->toHaveCount(3);
+	expect($result[0]['id'])->toBe(10);
+	expect($result[0]['name'])->toBe('Bouwmaterialen');
+	expect($result[0]['parent_id'])->toBeNull();
+
+	expect($result[1]['id'])->toBe(20);
+	expect($result[1]['name'])->toBe('Verlichting');
+	expect($result[1]['parent_id'])->toBe(10);
+	expect($result[1]['parent_name'])->toBe('Bouwmaterialen');
+
+	expect($result[2]['id'])->toBe(30);
+	expect($result[2]['name'])->toBe('LED Lampen');
+	expect($result[2]['parent_id'])->toBe(20);
+	expect($result[2]['parent_name'])->toBe('Verlichting');
+});
+
+test('get_categories deduplicates ancestors shared by multiple categories', function () {
+	$product = [
+		'product_id' => 10,
+		'_categories' => [
+			[
+				'category_id' => 30,
+				'category_name' => 'LED Lampen',
+				'parent_category_id' => 10,
+				'_parent_category' => [
+					'category_id' => 10,
+					'category_name' => 'Verlichting',
+				],
+			],
+			[
+				'category_id' => 40,
+				'category_name' => 'TL Buizen',
+				'parent_category_id' => 10,
+				'_parent_category' => [
+					'category_id' => 10,
+					'category_name' => 'Verlichting',
+				],
+			],
+		],
+	];
+
+	$result = $this->mapper->get_categories($product);
+
+	// Verlichting (id=10) should appear only once despite two children referencing it
+	expect($result)->toHaveCount(3);
+	expect($result[0]['id'])->toBe(10);
+	expect($result[0]['name'])->toBe('Verlichting');
+	expect($result[1]['id'])->toBe(30);
+	expect($result[1]['name'])->toBe('LED Lampen');
+	expect($result[2]['id'])->toBe(40);
+	expect($result[2]['name'])->toBe('TL Buizen');
+});
+
+test('get_categories handles 4-level deep tree', function () {
+	$product = [
+		'product_id' => 11,
+		'_categories' => [
+			[
+				'category_id' => 400,
+				'category_name' => 'Philips LED Spot',
+				'parent_category_id' => 300,
+				'_parent_category' => [
+					'category_id' => 300,
+					'category_name' => 'LED Lampen',
+					'parent_category_id' => 200,
+					'_parent_category' => [
+						'category_id' => 200,
+						'category_name' => 'Verlichting',
+						'parent_category_id' => 100,
+						'_parent_category' => [
+							'category_id' => 100,
+							'category_name' => 'Elektra',
+						],
+					],
+				],
+			],
+		],
+	];
+
+	$result = $this->mapper->get_categories($product);
+
+	expect($result)->toHaveCount(4);
+	expect($result[0]['id'])->toBe(100);
+	expect($result[0]['name'])->toBe('Elektra');
+	expect($result[0]['parent_id'])->toBeNull();
+
+	expect($result[1]['id'])->toBe(200);
+	expect($result[1]['name'])->toBe('Verlichting');
+	expect($result[1]['parent_id'])->toBe(100);
+
+	expect($result[2]['id'])->toBe(300);
+	expect($result[2]['name'])->toBe('LED Lampen');
+	expect($result[2]['parent_id'])->toBe(200);
+
+	expect($result[3]['id'])->toBe(400);
+	expect($result[3]['name'])->toBe('Philips LED Spot');
+	expect($result[3]['parent_id'])->toBe(300);
 });
 
 // ------------------------------------------------------------------
