@@ -14,15 +14,10 @@ if (!defined('ABSPATH')) {
 
 class Skwirrel_WC_Sync_Service {
 
-    private const OPTION_LAST_SYNC = 'skwirrel_wc_sync_last_sync';
-    private const OPTION_LAST_SYNC_RESULT = 'skwirrel_wc_sync_last_result';
-    private const OPTION_SYNC_HISTORY = 'skwirrel_wc_sync_history';
-    private const MAX_HISTORY_ENTRIES = 20;
-    private const SYNC_IN_PROGRESS = 'skwirrel_wc_sync_in_progress';
-    private const HEARTBEAT_TTL = 60;
-
     private Skwirrel_WC_Sync_Logger $logger;
     private Skwirrel_WC_Sync_Product_Mapper $mapper;
+    private Skwirrel_WC_Sync_Product_Lookup $lookup;
+    private Skwirrel_WC_Sync_Purge_Handler $purge_handler;
 
     /** @var string[] Skwirrel category IDs seen during current sync run */
     private array $seen_category_ids = [];
@@ -30,20 +25,15 @@ class Skwirrel_WC_Sync_Service {
     public function __construct() {
         $this->logger = new Skwirrel_WC_Sync_Logger();
         $this->mapper = new Skwirrel_WC_Sync_Product_Mapper();
-    }
-
-    /**
-     * Refresh the sync-in-progress transient so the UI knows the sync is still alive.
-     * If not refreshed within HEARTBEAT_TTL seconds, the transient expires automatically.
-     */
-    public static function sync_heartbeat(): void {
-        set_transient(self::SYNC_IN_PROGRESS, (string) time(), self::HEARTBEAT_TTL);
+        $this->lookup = new Skwirrel_WC_Sync_Product_Lookup($this->mapper);
+        $this->purge_handler = new Skwirrel_WC_Sync_Purge_Handler($this->logger);
     }
 
     /**
      * Run sync. Returns summary array.
      *
-     * @param bool $delta Use delta sync (updated_on >= last sync) if possible
+     * @param bool $delta Use delta sync (updated_on >= last sync) if possible.
+     * @return array{success: bool, created: int, updated: int, failed: int, error?: string}
      */
     public function run_sync(bool $delta = false): array {
         if (function_exists('set_time_limit')) {
@@ -52,7 +42,7 @@ class Skwirrel_WC_Sync_Service {
 
         $sync_started_at = time();
         $this->seen_category_ids = [];
-        self::sync_heartbeat();
+        Skwirrel_WC_Sync_History::sync_heartbeat();
 
         $client = $this->get_client();
         if (!$client) {
@@ -64,7 +54,7 @@ class Skwirrel_WC_Sync_Service {
         $created = 0;
         $updated = 0;
         $failed = 0;
-        $delta_since = get_option(self::OPTION_LAST_SYNC, '');
+        $delta_since = get_option(Skwirrel_WC_Sync_History::OPTION_LAST_SYNC, '');
 
         $collection_ids = $this->get_collection_ids();
 
@@ -167,7 +157,7 @@ class Skwirrel_WC_Sync_Service {
         if (!$result['success']) {
             $err = $result['error'] ?? ['message' => 'Unknown error'];
             $this->logger->error('Sync API error', $err);
-            $this->update_last_result(false, $created, $updated, $failed, $err['message'] ?? '');
+            Skwirrel_WC_Sync_History::update_last_result(false, $created, $updated, $failed, $err['message'] ?? '');
             return ['success' => false, 'error' => $err['message'] ?? 'API error', 'created' => 0, 'updated' => 0, 'failed' => 0];
         }
 
@@ -181,7 +171,7 @@ class Skwirrel_WC_Sync_Service {
 
         if ($delta && empty($products)) {
             $this->logger->info('Delta sync: no products updated since last sync');
-            $this->update_last_result(true, 0, 0, 0);
+            Skwirrel_WC_Sync_History::update_last_result(true, 0, 0, 0);
             return ['success' => true, 'created' => 0, 'updated' => 0, 'failed' => 0];
         }
 
@@ -213,7 +203,7 @@ class Skwirrel_WC_Sync_Service {
             }
 
             foreach ($products as $product) {
-                self::sync_heartbeat();
+                Skwirrel_WC_Sync_History::sync_heartbeat();
                 try {
                     $product_id = $product['internal_product_code'] ?? $product['product_id'] ?? '?';
                     $skwirrel_product_id = $product['product_id'] ?? $product['id'] ?? null;
@@ -380,15 +370,15 @@ class Skwirrel_WC_Sync_Service {
                     'collection_ids' => $collection_ids,
                 ]);
             } else {
-                $trashed = $this->purge_stale_products($sync_started_at);
+                $trashed = $this->purge_handler->purge_stale_products($sync_started_at, $this->mapper);
                 if (!empty($options['sync_categories'])) {
-                    $categories_removed = $this->purge_stale_categories();
+                    $categories_removed = $this->purge_handler->purge_stale_categories($this->seen_category_ids);
                 }
             }
         }
 
-        update_option(self::OPTION_LAST_SYNC, gmdate('Y-m-d\TH:i:s\Z'));
-        $this->update_last_result(true, $created, $updated, $failed, '', $with_attrs, $without_attrs, $trashed, $categories_removed);
+        update_option(Skwirrel_WC_Sync_History::OPTION_LAST_SYNC, gmdate('Y-m-d\TH:i:s\Z'));
+        Skwirrel_WC_Sync_History::update_last_result(true, $created, $updated, $failed, '', $with_attrs, $without_attrs, $trashed, $categories_removed);
 
         $this->logger->info('Sync completed', [
             'created' => $created,
@@ -446,12 +436,12 @@ class Skwirrel_WC_Sync_Service {
 
         // Stap 2: Zoek op _skwirrel_external_id meta
         if (!$wc_id) {
-            $wc_id = $this->find_by_external_id($key);
+            $wc_id = $this->lookup->find_by_external_id($key);
         }
 
         // Stap 3: Zoek op _skwirrel_product_id meta (meest stabiele identifier)
         if (!$wc_id && $skwirrel_product_id !== null && $skwirrel_product_id !== '' && $skwirrel_product_id !== 0) {
-            $wc_id = $this->find_by_skwirrel_product_id((int) $skwirrel_product_id);
+            $wc_id = $this->lookup->find_by_skwirrel_product_id((int) $skwirrel_product_id);
             if ($wc_id) {
                 $this->logger->info('Product gevonden via _skwirrel_product_id fallback', [
                     'skwirrel_product_id' => $skwirrel_product_id,
@@ -754,7 +744,7 @@ class Skwirrel_WC_Sync_Service {
             }
         }
 
-        $wc_id = $this->find_by_grouped_product_id((int) $grouped_id);
+        $wc_id = $this->lookup->find_by_grouped_product_id((int) $grouped_id);
         $is_new = !$wc_id;
 
         if ($is_new) {
@@ -834,7 +824,7 @@ class Skwirrel_WC_Sync_Service {
         $wc_product->save();
 
         $id = $wc_product->get_id();
-        update_post_meta($id, self::GROUPED_PRODUCT_ID_META, (int) $grouped_id);
+        update_post_meta($id, Skwirrel_WC_Sync_Product_Lookup::GROUPED_PRODUCT_ID_META, (int) $grouped_id);
         update_post_meta($id, $this->mapper->get_synced_at_meta_key(), time());
 
         // Store virtual_product_id if present (this product has images for the variable product)
@@ -890,7 +880,7 @@ class Skwirrel_WC_Sync_Service {
             return $this->upsert_product($product);
         }
 
-        $variation_id = $this->find_variation_by_sku($wc_variable_id, $sku);
+        $variation_id = $this->lookup->find_variation_by_sku($wc_variable_id, $sku);
         if (!$variation_id) {
             $variation = new WC_Product_Variation();
             $variation->set_parent_id($wc_variable_id);
@@ -1278,7 +1268,7 @@ class Skwirrel_WC_Sync_Service {
             return;
         }
 
-        self::sync_heartbeat();
+        Skwirrel_WC_Sync_History::sync_heartbeat();
         $this->logger->info('Syncing all brands via getBrands');
 
         $result = $client->call('getBrands', []);
@@ -1332,7 +1322,7 @@ class Skwirrel_WC_Sync_Service {
      * This ensures attributes exist before products are processed.
      */
     private function sync_all_custom_classes(Skwirrel_WC_Sync_JsonRpc_Client $client, array $options): void {
-        self::sync_heartbeat();
+        Skwirrel_WC_Sync_History::sync_heartbeat();
         $this->logger->info('Syncing all custom classes via getCustomClasses');
 
         $cc_filter_mode = $options['custom_class_filter_mode'] ?? '';
@@ -1818,19 +1808,6 @@ class Skwirrel_WC_Sync_Service {
         file_put_contents($file, $line, FILE_APPEND | LOCK_EX);
     }
 
-    private function find_variation_by_sku(int $parent_id, string $sku): int {
-        global $wpdb;
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- variation lookup by parent+SKU not supported by WP API
-        $id = $wpdb->get_var($wpdb->prepare(
-            "SELECT p.ID FROM {$wpdb->posts} p
-            INNER JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id AND pm.meta_key = '_sku'
-            WHERE p.post_parent = %d AND pm.meta_value = %s AND p.post_type = 'product_variation'",
-            $parent_id,
-            $sku
-        ));
-        return $id ? (int) $id : 0;
-    }
-
     private function add_term_to_parent_attribute(int $parent_id, string $taxonomy, int $term_id): void {
         $wc_product = wc_get_product($parent_id);
         if (!$wc_product || !$wc_product->is_type('variable')) {
@@ -1859,34 +1836,6 @@ class Skwirrel_WC_Sync_Service {
         wp_set_object_terms($parent_id, $options, $taxonomy, false);
 
         $wc_product->save();
-    }
-
-    private function find_by_grouped_product_id(int $grouped_product_id): int {
-        global $wpdb;
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- meta value lookup not supported by WP API
-        $id = $wpdb->get_var($wpdb->prepare(
-            "SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key = %s AND meta_value = %s LIMIT 1",
-            self::GROUPED_PRODUCT_ID_META,
-            (string) $grouped_product_id
-        ));
-        return $id ? (int) $id : 0;
-    }
-
-    private function find_by_skwirrel_product_id(int $product_id): int {
-        global $wpdb;
-        $meta_key = $this->mapper->get_product_id_meta_key();
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- meta value lookup with post_type filter not supported by WP API
-        $id = $wpdb->get_var($wpdb->prepare(
-            "SELECT pm.post_id FROM {$wpdb->postmeta} pm
-             INNER JOIN {$wpdb->posts} p ON pm.post_id = p.ID
-                 AND p.post_type IN ('product', 'product_variation')
-                 AND p.post_status NOT IN ('trash', 'auto-draft')
-             WHERE pm.meta_key = %s AND pm.meta_value = %s
-             LIMIT 1",
-            $meta_key,
-            (string) $product_id
-        ));
-        return $id ? (int) $id : 0;
     }
 
     private function get_client(): ?Skwirrel_WC_Sync_JsonRpc_Client {
@@ -1947,23 +1896,6 @@ class Skwirrel_WC_Sync_Service {
         return ['nl-NL', 'nl'];
     }
 
-    private function find_by_external_id(string $key): int {
-        global $wpdb;
-        $meta_key = $this->mapper->get_external_id_meta_key();
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- meta value lookup with post_type filter not supported by WP API
-        $id = $wpdb->get_var($wpdb->prepare(
-            "SELECT pm.post_id FROM {$wpdb->postmeta} pm
-             INNER JOIN {$wpdb->posts} p ON pm.post_id = p.ID
-                 AND p.post_type IN ('product', 'product_variation')
-                 AND p.post_status NOT IN ('trash', 'auto-draft')
-             WHERE pm.meta_key = %s AND pm.meta_value = %s
-             LIMIT 1",
-            $meta_key,
-            $key
-        ));
-        return $id ? (int) $id : 0;
-    }
-
     private function format_downloads(array $files): array {
         $downloads = [];
         foreach ($files as $i => $f) {
@@ -1975,225 +1907,4 @@ class Skwirrel_WC_Sync_Service {
         return $downloads;
     }
 
-    /**
-     * Verwijder producten uit WooCommerce die niet meer in Skwirrel voorkomen.
-     * Werkt alleen bij volledige sync (niet delta) zonder collectie-filter.
-     * Producten worden naar de prullenbak verplaatst (niet permanent verwijderd).
-     */
-    private function purge_stale_products(int $sync_started_at): int {
-        global $wpdb;
-        $external_id_meta = $this->mapper->get_external_id_meta_key();
-        $synced_at_meta = $this->mapper->get_synced_at_meta_key();
-
-        // Vind producten met _skwirrel_external_id die NIET bijgewerkt zijn tijdens deze sync
-        // Veiligheidscheck: meta_value moet numeriek zijn (voorkom corrupt data → onterecht trashen)
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-        $stale_ids = $wpdb->get_col($wpdb->prepare(
-            "SELECT DISTINCT pm_ext.post_id
-             FROM {$wpdb->postmeta} pm_ext
-             INNER JOIN {$wpdb->posts} p ON pm_ext.post_id = p.ID
-                 AND p.post_status NOT IN ('trash', 'auto-draft')
-                 AND p.post_type IN ('product', 'product_variation')
-             LEFT JOIN {$wpdb->postmeta} pm_sync ON pm_ext.post_id = pm_sync.post_id
-                 AND pm_sync.meta_key = %s
-             WHERE pm_ext.meta_key = %s
-                 AND pm_ext.meta_value != ''
-                 AND (
-                     pm_sync.meta_value IS NULL
-                     OR (pm_sync.meta_value REGEXP '^[0-9]+$' AND CAST(pm_sync.meta_value AS UNSIGNED) < %d)
-                 )",
-            $synced_at_meta,
-            $external_id_meta,
-            $sync_started_at
-        ));
-
-        // Vind variable producten (grouped products) die niet bijgewerkt zijn
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-        $stale_variable_ids = $wpdb->get_col($wpdb->prepare(
-            "SELECT DISTINCT pm_grp.post_id
-             FROM {$wpdb->postmeta} pm_grp
-             INNER JOIN {$wpdb->posts} p ON pm_grp.post_id = p.ID
-                 AND p.post_status NOT IN ('trash', 'auto-draft')
-                 AND p.post_type = 'product'
-             LEFT JOIN {$wpdb->postmeta} pm_sync ON pm_grp.post_id = pm_sync.post_id
-                 AND pm_sync.meta_key = %s
-             WHERE pm_grp.meta_key = %s
-                 AND pm_grp.meta_value != ''
-                 AND (
-                     pm_sync.meta_value IS NULL
-                     OR (pm_sync.meta_value REGEXP '^[0-9]+$' AND CAST(pm_sync.meta_value AS UNSIGNED) < %d)
-                 )",
-            $synced_at_meta,
-            self::GROUPED_PRODUCT_ID_META,
-            $sync_started_at
-        ));
-
-        $all_stale = array_unique(array_merge(
-            array_map('intval', $stale_ids),
-            array_map('intval', $stale_variable_ids)
-        ));
-
-        if (empty($all_stale)) {
-            $this->logger->verbose('Geen verwijderde producten gevonden');
-            return 0;
-        }
-
-        // Pre-purge samenvatting loggen
-        $this->logger->info('Verwijderde producten gedetecteerd', [
-            'count' => count($all_stale),
-            'product_ids' => array_slice($all_stale, 0, 20),
-            'sync_started_at' => gmdate('Y-m-d H:i:s', $sync_started_at),
-        ]);
-
-        $trashed = 0;
-        foreach ($all_stale as $post_id) {
-            $product = wc_get_product($post_id);
-            if (!$product) {
-                $this->logger->verbose('Stale product niet gevonden, overgeslagen', ['wc_id' => $post_id]);
-                continue;
-            }
-
-            $this->logger->info('Product verwijderd uit Skwirrel, naar prullenbak verplaatst', [
-                'wc_id' => $post_id,
-                'sku' => $product->get_sku(),
-                'name' => $product->get_name(),
-                'type' => $product->get_type(),
-            ]);
-
-            $product->set_status('trash');
-            $product->save();
-            $trashed++;
-
-            // Variable product: ook variaties naar prullenbak
-            if ($product->is_type('variable')) {
-                $variation_ids = $product->get_children();
-                foreach ($variation_ids as $vid) {
-                    $variation = wc_get_product($vid);
-                    if ($variation && $variation->get_status() !== 'trash') {
-                        $variation->set_status('trash');
-                        $variation->save();
-                        $trashed++;
-                    }
-                }
-            }
-        }
-
-        if ($trashed > 0) {
-            $this->logger->info('Verwijderde producten opgeruimd', ['count' => $trashed]);
-        }
-
-        return $trashed;
-    }
-
-    /**
-     * Verwijder categorieën die niet meer in Skwirrel voorkomen.
-     * Alleen categorieën met _skwirrel_category_id meta worden verwijderd.
-     * Categorieën met nog gekoppelde producten worden overgeslagen (veiligheid).
-     */
-    private function purge_stale_categories(): int {
-        global $wpdb;
-        $cat_meta_key = Skwirrel_WC_Sync_Product_Mapper::CATEGORY_ID_META;
-
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-        $all_skwirrel_terms = $wpdb->get_results($wpdb->prepare(
-            "SELECT tm.term_id, tm.meta_value as skwirrel_id, t.name as term_name
-             FROM {$wpdb->termmeta} tm
-             INNER JOIN {$wpdb->term_taxonomy} tt ON tm.term_id = tt.term_id AND tt.taxonomy = 'product_cat'
-             INNER JOIN {$wpdb->terms} t ON tm.term_id = t.term_id
-             WHERE tm.meta_key = %s AND tm.meta_value != ''",
-            $cat_meta_key
-        ));
-
-        $seen = array_unique($this->seen_category_ids);
-        $purged = 0;
-
-        foreach ($all_skwirrel_terms as $term) {
-            if (in_array($term->skwirrel_id, $seen, true)) {
-                continue;
-            }
-
-            // Veiligheidscheck: verwijder niet als er nog producten aan gekoppeld zijn
-            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-            $product_count = (int) $wpdb->get_var($wpdb->prepare(
-                "SELECT COUNT(*) FROM {$wpdb->term_relationships} tr
-                 INNER JOIN {$wpdb->posts} p ON tr.object_id = p.ID
-                     AND p.post_type IN ('product', 'product_variation')
-                     AND p.post_status NOT IN ('trash', 'auto-draft')
-                 WHERE tr.term_taxonomy_id = (
-                     SELECT term_taxonomy_id FROM {$wpdb->term_taxonomy}
-                     WHERE term_id = %d AND taxonomy = 'product_cat'
-                 )",
-                $term->term_id
-            ));
-
-            if ($product_count > 0) {
-                $this->logger->warning('Categorie niet verwijderd: nog producten gekoppeld', [
-                    'term_id' => $term->term_id,
-                    'name' => $term->term_name,
-                    'skwirrel_id' => $term->skwirrel_id,
-                    'product_count' => $product_count,
-                ]);
-                continue;
-            }
-
-            $this->logger->info('Categorie verwijderd uit Skwirrel, opgeruimd', [
-                'term_id' => $term->term_id,
-                'name' => $term->term_name,
-                'skwirrel_id' => $term->skwirrel_id,
-            ]);
-            wp_delete_term((int) $term->term_id, 'product_cat');
-            $purged++;
-        }
-
-        if ($purged > 0) {
-            $this->logger->info('Verwijderde categorieën opgeruimd', ['count' => $purged]);
-        }
-
-        return $purged;
-    }
-
-    private function update_last_result(bool $ok, int $created, int $updated, int $failed, string $error = '', int $with_attrs = 0, int $without_attrs = 0, int $trashed = 0, int $categories_removed = 0): void {
-        $result = [
-            'success' => $ok,
-            'created' => $created,
-            'updated' => $updated,
-            'failed' => $failed,
-            'trashed' => $trashed,
-            'categories_removed' => $categories_removed,
-            'error' => $error,
-            'with_attributes' => $with_attrs,
-            'without_attributes' => $without_attrs,
-            'timestamp' => time(),
-        ];
-
-        update_option(self::OPTION_LAST_SYNC_RESULT, $result, false);
-        delete_transient(self::SYNC_IN_PROGRESS);
-
-        // Add to history
-        $history = get_option(self::OPTION_SYNC_HISTORY, []);
-        if (!is_array($history)) {
-            $history = [];
-        }
-
-        // Prepend newest entry at the beginning
-        array_unshift($history, $result);
-
-        // Keep only the latest MAX_HISTORY_ENTRIES
-        $history = array_slice($history, 0, self::MAX_HISTORY_ENTRIES);
-
-        update_option(self::OPTION_SYNC_HISTORY, $history, false);
-    }
-
-    public static function get_last_sync(): ?string {
-        return get_option(self::OPTION_LAST_SYNC, null);
-    }
-
-    public static function get_last_result(): ?array {
-        return get_option(self::OPTION_LAST_SYNC_RESULT, null);
-    }
-
-    public static function get_sync_history(): array {
-        $history = get_option(self::OPTION_SYNC_HISTORY, []);
-        return is_array($history) ? $history : [];
-    }
 }
