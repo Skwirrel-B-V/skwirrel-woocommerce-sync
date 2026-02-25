@@ -18,15 +18,18 @@ class Skwirrel_WC_Sync_Service {
     private Skwirrel_WC_Sync_Product_Mapper $mapper;
     private Skwirrel_WC_Sync_Product_Lookup $lookup;
     private Skwirrel_WC_Sync_Purge_Handler $purge_handler;
-
-    /** @var string[] Skwirrel category IDs seen during current sync run */
-    private array $seen_category_ids = [];
+    private Skwirrel_WC_Sync_Category_Sync $category_sync;
+    private Skwirrel_WC_Sync_Brand_Sync $brand_sync;
+    private Skwirrel_WC_Sync_Taxonomy_Manager $taxonomy_manager;
 
     public function __construct() {
         $this->logger = new Skwirrel_WC_Sync_Logger();
         $this->mapper = new Skwirrel_WC_Sync_Product_Mapper();
         $this->lookup = new Skwirrel_WC_Sync_Product_Lookup($this->mapper);
         $this->purge_handler = new Skwirrel_WC_Sync_Purge_Handler($this->logger);
+        $this->category_sync = new Skwirrel_WC_Sync_Category_Sync($this->logger);
+        $this->brand_sync = new Skwirrel_WC_Sync_Brand_Sync($this->logger);
+        $this->taxonomy_manager = new Skwirrel_WC_Sync_Taxonomy_Manager($this->logger);
     }
 
     /**
@@ -41,7 +44,7 @@ class Skwirrel_WC_Sync_Service {
         }
 
         $sync_started_at = time();
-        $this->seen_category_ids = [];
+        $this->category_sync->reset_seen_category_ids();
         Skwirrel_WC_Sync_History::sync_heartbeat();
 
         $client = $this->get_client();
@@ -117,15 +120,15 @@ class Skwirrel_WC_Sync_Service {
 
         // Sync category tree from super category (before products)
         if (!empty($options['sync_categories']) && !empty($options['super_category_id'])) {
-            $this->sync_category_tree($client, $options);
+            $this->category_sync->sync_category_tree($client, $options, $this->get_include_languages());
         }
 
         // Sync all brands (independent of products)
-        $this->sync_all_brands($client);
+        $this->brand_sync->sync_all_brands($client);
 
         // Sync all custom classes as WooCommerce attributes (independent of products)
         if (!empty($options['sync_custom_classes']) || !empty($options['sync_trade_item_custom_classes'])) {
-            $this->sync_all_custom_classes($client, $options);
+            $this->taxonomy_manager->sync_all_custom_classes($client, $options, $this->get_include_languages());
         }
 
         $product_to_group_map = [];
@@ -372,7 +375,7 @@ class Skwirrel_WC_Sync_Service {
             } else {
                 $trashed = $this->purge_handler->purge_stale_products($sync_started_at, $this->mapper);
                 if (!empty($options['sync_categories'])) {
-                    $categories_removed = $this->purge_handler->purge_stale_categories($this->seen_category_ids);
+                    $categories_removed = $this->purge_handler->purge_stale_categories($this->category_sync->get_seen_category_ids());
                 }
             }
         }
@@ -608,8 +611,8 @@ class Skwirrel_WC_Sync_Service {
             ]);
         }
 
-        $this->assign_categories($id, $product);
-        $this->assign_brand($id, $product);
+        $this->category_sync->assign_categories($id, $product, $this->mapper);
+        $this->brand_sync->assign_brand($id, $product);
 
         if (!empty($attrs)) {
             $product_attrs = [];
@@ -639,8 +642,6 @@ class Skwirrel_WC_Sync_Service {
 
         return $is_new ? 'created' : 'updated';
     }
-
-    private const GROUPED_PRODUCT_ID_META = '_skwirrel_grouped_product_id';
 
     /**
      * Stap 1: Haal grouped products op, maak variable producten aan (zonder variations).
@@ -796,9 +797,9 @@ class Skwirrel_WC_Sync_Service {
         if (!empty($etim_variation_codes)) {
             foreach ($etim_variation_codes as $pos => $ef) {
                 $code = $ef['code'];
-                $etim_slug = $this->get_etim_attribute_slug($code);
+                $etim_slug = $this->taxonomy_manager->get_etim_attribute_slug($code);
                 $label = !empty($ef['label']) ? $ef['label'] : $code;
-                $tax = $this->ensure_product_attribute_exists($etim_slug, $label);
+                $tax = $this->taxonomy_manager->ensure_product_attribute_exists($etim_slug, $label);
                 $attr = new WC_Product_Attribute();
                 $attr->set_id(wc_attribute_taxonomy_id_by_name($etim_slug));
                 $attr->set_name($tax);
@@ -810,7 +811,7 @@ class Skwirrel_WC_Sync_Service {
             }
         }
         if (empty($attrs)) {
-            $this->ensure_variant_taxonomy_exists();
+            $this->taxonomy_manager->ensure_variant_taxonomy_exists();
             $attr = new WC_Product_Attribute();
             $attr->set_id(wc_attribute_taxonomy_id_by_name('variant'));
             $attr->set_name('pa_variant');
@@ -864,8 +865,8 @@ class Skwirrel_WC_Sync_Service {
             ];
         }
 
-        $this->assign_categories($id, $group);
-        $this->assign_brand($id, $group);
+        $this->category_sync->assign_categories($id, $group, $this->mapper);
+        $this->brand_sync->assign_brand($id, $group);
 
         return $is_new ? 'created' : 'updated';
     }
@@ -938,13 +939,13 @@ class Skwirrel_WC_Sync_Service {
                 if (!$data) {
                     continue;
                 }
-                $slug = $this->get_etim_attribute_slug($code);
+                $slug = $this->taxonomy_manager->get_etim_attribute_slug($code);
                 $tax = wc_attribute_taxonomy_name($slug);
                 $label = !empty($data['label']) ? $data['label'] : $code;
                 if (!taxonomy_exists($tax)) {
-                    $this->ensure_product_attribute_exists($slug, $label);
+                    $this->taxonomy_manager->ensure_product_attribute_exists($slug, $label);
                 } else {
-                    $this->maybe_update_attribute_label($slug, $label);
+                    $this->taxonomy_manager->maybe_update_attribute_label($slug, $label);
                 }
                 $term = get_term_by('slug', $data['slug'], $tax) ?: get_term_by('name', $data['value'], $tax);
                 if (!$term || is_wp_error($term)) {
@@ -1077,716 +1078,6 @@ class Skwirrel_WC_Sync_Service {
         do_action('skwirrel_wc_sync_after_variation_save', $variation->get_id(), $variation_attrs, $product);
 
         return $variation_id ? 'updated' : 'created';
-    }
-
-    /**
-     * Sync the full category tree from a Skwirrel super category via getCategories API.
-     * Creates/updates WooCommerce product_cat terms for the entire tree.
-     */
-    private function sync_category_tree(Skwirrel_WC_Sync_JsonRpc_Client $client, array $options): void {
-        $super_id = (int) ($options['super_category_id'] ?? 0);
-        if ($super_id <= 0) {
-            return;
-        }
-
-        $this->logger->info('Syncing category tree', ['super_category_id' => $super_id]);
-
-        $params = [
-            'category_id' => $super_id,
-            'include_children' => true,
-            'include_category_translations' => true,
-        ];
-
-        $languages = $this->get_include_languages();
-        if (!empty($languages)) {
-            $params['include_languages'] = $languages;
-        }
-
-        $result = $client->call('getCategories', $params);
-
-        if (!$result['success']) {
-            $err = $result['error'] ?? ['message' => 'Unknown error'];
-            $this->logger->error('getCategories API error', $err);
-            return;
-        }
-
-        $data = $result['result'] ?? [];
-        $categories = $data['categories'] ?? $data;
-        if (!is_array($categories)) {
-            $this->logger->warning('getCategories returned unexpected format', ['type' => gettype($categories)]);
-            return;
-        }
-
-        $this->logger->info('Category tree received', ['count' => count($categories)]);
-
-        $tax = 'product_cat';
-        $cat_id_meta = Skwirrel_WC_Sync_Product_Mapper::CATEGORY_ID_META;
-        $lang = $options['image_language'] ?? 'nl';
-
-        // Flatten the tree: build a list of all categories with parent references.
-        $flat = [];
-        $this->flatten_category_tree($categories, $flat, $lang);
-
-        if (empty($flat)) {
-            $this->logger->info('No categories found in tree');
-            return;
-        }
-
-        // Resolve in order: parents before children.
-        // Build lookup by Skwirrel category ID.
-        $by_id = [];
-        foreach ($flat as $cat) {
-            if ($cat['id'] !== null) {
-                $by_id[$cat['id']] = $cat;
-            }
-        }
-
-        $resolved = []; // skwirrel_id => wc_term_id
-        $created_count = 0;
-
-        foreach ($flat as $cat) {
-            $cat_id = $cat['id'] ?? null;
-            if ($cat_id !== null && isset($resolved[$cat_id])) {
-                continue;
-            }
-
-            $parent_id = $cat['parent_id'] ?? null;
-            $wc_parent = 0;
-
-            // Resolve parent first
-            if ($parent_id !== null && isset($resolved[$parent_id])) {
-                $wc_parent = $resolved[$parent_id];
-            } elseif ($parent_id !== null && $parent_id !== $super_id) {
-                // Parent not yet resolved but exists in our set — find/create it
-                if (isset($by_id[$parent_id])) {
-                    $wc_parent = $this->find_or_create_category_term(
-                        $parent_id,
-                        $by_id[$parent_id]['name'],
-                        $tax,
-                        $cat_id_meta,
-                        0
-                    );
-                    if ($wc_parent) {
-                        $resolved[$parent_id] = $wc_parent;
-                    }
-                }
-            }
-
-            $wc_term_id = $this->find_or_create_category_term(
-                $cat_id,
-                $cat['name'],
-                $tax,
-                $cat_id_meta,
-                $wc_parent
-            );
-
-            if ($wc_term_id && $cat_id !== null) {
-                $resolved[$cat_id] = $wc_term_id;
-                $created_count++;
-            }
-        }
-
-        $this->logger->info('Category tree synced', [
-            'super_category_id' => $super_id,
-            'total_categories' => count($flat),
-            'resolved' => $created_count,
-        ]);
-    }
-
-    /**
-     * Recursively flatten a nested category tree into a flat list.
-     *
-     * @param array  $categories Nested category array from API.
-     * @param array  $flat       Output: flat list of ['id', 'name', 'parent_id'].
-     * @param string $lang       Preferred language for category name.
-     */
-    private function flatten_category_tree(array $categories, array &$flat, string $lang): void {
-        foreach ($categories as $cat) {
-            $cat_id = $cat['category_id'] ?? $cat['product_category_id'] ?? $cat['id'] ?? null;
-            if ($cat_id !== null) {
-                $cat_id = (int) $cat_id;
-            }
-
-            $name = $this->pick_category_name($cat, $lang);
-            if ($name === '' && isset($cat['category_name'])) {
-                $name = $cat['category_name'];
-            }
-
-            $parent_id = $cat['parent_category_id'] ?? null;
-            if ($parent_id !== null) {
-                $parent_id = (int) $parent_id;
-            }
-
-            if ($name !== '') {
-                $flat[] = [
-                    'id' => $cat_id,
-                    'name' => $name,
-                    'parent_id' => $parent_id,
-                ];
-            }
-
-            // Recurse into children
-            $children = $cat['_children'] ?? $cat['_categories'] ?? $cat['children'] ?? [];
-            if (!empty($children) && is_array($children)) {
-                $this->flatten_category_tree($children, $flat, $lang);
-            }
-        }
-    }
-
-    /**
-     * Pick the best category name based on language preference.
-     */
-    private function pick_category_name(array $cat, string $lang): string {
-        $translations = $cat['_category_translations'] ?? [];
-        if (!empty($translations) && is_array($translations)) {
-            foreach ($translations as $t) {
-                $t_lang = $t['language'] ?? '';
-                if (stripos($t_lang, $lang) === 0 || stripos($lang, $t_lang) === 0) {
-                    $name = $t['category_name'] ?? $t['product_category_name'] ?? $t['name'] ?? '';
-                    if ($name !== '') {
-                        return $name;
-                    }
-                }
-            }
-            // Fallback: first translation with a name
-            foreach ($translations as $t) {
-                $name = $t['category_name'] ?? $t['product_category_name'] ?? $t['name'] ?? '';
-                if ($name !== '') {
-                    return $name;
-                }
-            }
-        }
-        return $cat['category_name'] ?? $cat['product_category_name'] ?? $cat['name'] ?? '';
-    }
-
-    /**
-     * Sync all brands from the API, independent of products.
-     * Creates product_brand terms for every brand returned by getBrands.
-     */
-    private function sync_all_brands(Skwirrel_WC_Sync_JsonRpc_Client $client): void {
-        if (!taxonomy_exists('product_brand')) {
-            return;
-        }
-
-        Skwirrel_WC_Sync_History::sync_heartbeat();
-        $this->logger->info('Syncing all brands via getBrands');
-
-        $result = $client->call('getBrands', []);
-
-        if (!$result['success']) {
-            $err = $result['error'] ?? ['message' => 'Unknown error'];
-            $this->logger->error('getBrands API error', $err);
-            return;
-        }
-
-        $data = $result['result'] ?? [];
-        $brands = $data['brands'] ?? $data;
-        if (!is_array($brands)) {
-            $this->logger->warning('getBrands returned unexpected format', ['type' => gettype($brands)]);
-            return;
-        }
-
-        $created = 0;
-        foreach ($brands as $brand) {
-            $brand_name = trim($brand['brand_name'] ?? $brand['name'] ?? '');
-            if ($brand_name === '') {
-                continue;
-            }
-
-            $term = term_exists($brand_name, 'product_brand');
-            if ($term && !is_wp_error($term)) {
-                continue; // Already exists
-            }
-
-            $inserted = wp_insert_term($brand_name, 'product_brand');
-            if (is_wp_error($inserted)) {
-                if ($inserted->get_error_code() !== 'term_exists') {
-                    $this->logger->warning('Failed to create brand term', [
-                        'brand' => $brand_name,
-                        'error' => $inserted->get_error_message(),
-                    ]);
-                }
-            } else {
-                ++$created;
-            }
-        }
-
-        $this->logger->info('Brands synced', [
-            'total' => count($brands),
-            'created' => $created,
-        ]);
-    }
-
-    /**
-     * Sync all custom classes from the API as WooCommerce product attributes.
-     * This ensures attributes exist before products are processed.
-     */
-    private function sync_all_custom_classes(Skwirrel_WC_Sync_JsonRpc_Client $client, array $options): void {
-        Skwirrel_WC_Sync_History::sync_heartbeat();
-        $this->logger->info('Syncing all custom classes via getCustomClasses');
-
-        $cc_filter_mode = $options['custom_class_filter_mode'] ?? '';
-        $cc_parsed = Skwirrel_WC_Sync_Product_Mapper::parse_custom_class_filter($options['custom_class_filter_ids'] ?? '');
-
-        $params = [];
-        if ($cc_filter_mode === 'whitelist' && !empty($cc_parsed['ids'])) {
-            $params['custom_class_id'] = $cc_parsed['ids'];
-        }
-
-        $languages = $this->get_include_languages();
-        if (!empty($languages)) {
-            $params['include_languages'] = $languages;
-        }
-
-        $result = $client->call('getCustomClasses', $params);
-
-        if (!$result['success']) {
-            $err = $result['error'] ?? ['message' => 'Unknown error'];
-            $this->logger->error('getCustomClasses API error', $err);
-            return;
-        }
-
-        $data = $result['result'] ?? [];
-        $classes = $data['custom_classes'] ?? $data;
-        if (!is_array($classes)) {
-            $this->logger->warning('getCustomClasses returned unexpected format', ['type' => gettype($classes)]);
-            return;
-        }
-
-        // Apply blacklist filter if configured
-        if ($cc_filter_mode === 'blacklist' && (!empty($cc_parsed['ids']) || !empty($cc_parsed['codes']))) {
-            $classes = array_filter($classes, function (array $cc) use ($cc_parsed): bool {
-                $id = $cc['custom_class_id'] ?? null;
-                $code = $cc['custom_class_code'] ?? null;
-                if ($id !== null && in_array((int) $id, $cc_parsed['ids'], true)) {
-                    return false;
-                }
-                if ($code !== null && in_array(strtoupper((string) $code), array_map('strtoupper', $cc_parsed['codes']), true)) {
-                    return false;
-                }
-                return true;
-            });
-        }
-
-        $created = 0;
-        foreach ($classes as $cc) {
-            $features = $cc['_custom_class_features'] ?? $cc['features'] ?? [];
-            if (!is_array($features)) {
-                continue;
-            }
-
-            foreach ($features as $feat) {
-                $feat_type = strtoupper($feat['custom_feature_type'] ?? '');
-                // Skip text/blob types — these are stored as meta, not attributes
-                if (in_array($feat_type, ['T', 'B'], true)) {
-                    continue;
-                }
-
-                $name = $feat['custom_feature_description'] ?? $feat['custom_feature_code'] ?? '';
-                if ($name === '') {
-                    continue;
-                }
-
-                // Just ensure the attribute name is known; actual values are assigned per product
-                $slug = sanitize_title($name);
-                if (strlen($slug) > 0) {
-                    ++$created;
-                }
-            }
-        }
-
-        $this->logger->info('Custom classes synced', [
-            'total_classes' => count($classes),
-            'features_found' => $created,
-        ]);
-    }
-
-    /**
-     * Assign product categories to a WooCommerce product.
-     * Matches by Skwirrel category ID first (term meta), then by name.
-     * Supports parent/child hierarchy from _categories data.
-     */
-    private function assign_categories(int $wc_product_id, array $product): void {
-        $categories = $this->mapper->get_categories($product);
-        if (empty($categories)) {
-            return;
-        }
-
-        $tax = 'product_cat';
-        $term_ids = [];
-        $cat_id_meta = Skwirrel_WC_Sync_Product_Mapper::CATEGORY_ID_META;
-
-        // Build lookup: skwirrel_id → category entry (for parent resolution)
-        $by_skwirrel_id = [];
-        foreach ($categories as $cat) {
-            if ($cat['id'] !== null) {
-                $by_skwirrel_id[$cat['id']] = $cat;
-            }
-        }
-
-        // Resolve the full tree in topological order (roots first).
-        // skwirrel_id → WC term ID mapping built up as we go.
-        $resolved = []; // skwirrel_id => wc_term_id
-
-        // Recursive resolver — resolves parent chain before the category itself.
-        $resolve = function (array $cat) use (
-            &$resolve, &$resolved, &$term_ids,
-            $by_skwirrel_id, $tax, $cat_id_meta
-        ): int {
-            $cat_id = $cat['id'] ?? null;
-
-            // Already resolved?
-            if ($cat_id !== null && isset($resolved[$cat_id])) {
-                return $resolved[$cat_id];
-            }
-
-            $parent_id = $cat['parent_id'] ?? null;
-            $wc_parent_term_id = 0;
-
-            // Resolve parent first (if it exists in our tree)
-            if ($parent_id !== null && isset($by_skwirrel_id[$parent_id])) {
-                $wc_parent_term_id = $resolve($by_skwirrel_id[$parent_id]);
-            } elseif ($parent_id !== null || ($cat['parent_name'] ?? '') !== '') {
-                // Parent not in our tree — look up / create by ID+name
-                $wc_parent_term_id = $this->find_or_create_category_term(
-                    $parent_id,
-                    $cat['parent_name'] ?? '',
-                    $tax,
-                    $cat_id_meta,
-                    0
-                );
-                if ($wc_parent_term_id && $parent_id !== null) {
-                    $resolved[$parent_id] = $wc_parent_term_id;
-                }
-            }
-
-            // Resolve the category itself
-            $wc_term_id = $this->find_or_create_category_term(
-                $cat_id,
-                $cat['name'],
-                $tax,
-                $cat_id_meta,
-                $wc_parent_term_id
-            );
-
-            if ($wc_term_id) {
-                $term_ids[] = $wc_term_id;
-                if ($cat_id !== null) {
-                    $resolved[$cat_id] = $wc_term_id;
-                }
-                // Include all ancestors in the product's terms
-                if ($wc_parent_term_id) {
-                    $term_ids[] = $wc_parent_term_id;
-                }
-            }
-
-            return $wc_term_id;
-        };
-
-        foreach ($categories as $cat) {
-            $resolve($cat);
-        }
-
-        $term_ids = array_unique(array_map('intval', $term_ids));
-        if (!empty($term_ids)) {
-            wp_set_object_terms($wc_product_id, $term_ids, $tax);
-            $this->logger->verbose('Categories assigned', [
-                'wc_product_id' => $wc_product_id,
-                'term_ids' => $term_ids,
-                'names' => array_column($categories, 'name'),
-            ]);
-        }
-    }
-
-    /**
-     * Assign product_brand taxonomy term from Skwirrel brand_name.
-     */
-    private function assign_brand(int $wc_product_id, array $product): void {
-        if (!taxonomy_exists('product_brand')) {
-            return;
-        }
-
-        $brand_name = trim($product['brand_name'] ?? '');
-        if ($brand_name === '') {
-            return;
-        }
-
-        $term = term_exists($brand_name, 'product_brand');
-        if ($term && !is_wp_error($term)) {
-            $term_id = is_array($term) ? (int) $term['term_id'] : (int) $term;
-        } else {
-            $inserted = wp_insert_term($brand_name, 'product_brand');
-            if (is_wp_error($inserted)) {
-                if ($inserted->get_error_code() === 'term_exists') {
-                    $term_id = (int) $inserted->get_error_data('term_exists');
-                } else {
-                    $this->logger->warning('Failed to create brand term', [
-                        'brand' => $brand_name,
-                        'error' => $inserted->get_error_message(),
-                    ]);
-                    return;
-                }
-            } else {
-                $term_id = (int) $inserted['term_id'];
-                $this->logger->verbose('Brand term created', [
-                    'term_id' => $term_id,
-                    'brand' => $brand_name,
-                ]);
-            }
-        }
-
-        wp_set_object_terms($wc_product_id, [$term_id], 'product_brand');
-        $this->logger->verbose('Brand assigned', [
-            'wc_product_id' => $wc_product_id,
-            'brand' => $brand_name,
-            'term_id' => $term_id,
-        ]);
-    }
-
-    /**
-     * Find existing term by Skwirrel category ID (term meta) or name, or create new.
-     * Returns WC term_id or 0 on failure.
-     */
-    private function find_or_create_category_term(
-        ?int $skwirrel_id,
-        string $name,
-        string $taxonomy,
-        string $meta_key,
-        int $parent_term_id
-    ): int {
-        if ($name === '' && $skwirrel_id === null) {
-            return 0;
-        }
-
-        // Track seen category IDs for purge logic
-        if ($skwirrel_id !== null) {
-            $this->seen_category_ids[] = (string) $skwirrel_id;
-        }
-
-        // 1. Match by Skwirrel category ID in term meta (reliable)
-        if ($skwirrel_id !== null) {
-            global $wpdb;
-            $existing_term_id = $wpdb->get_var($wpdb->prepare( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- term meta lookup by value not supported by WP API
-                "SELECT tm.term_id FROM {$wpdb->termmeta} tm
-                 INNER JOIN {$wpdb->term_taxonomy} tt ON tm.term_id = tt.term_id AND tt.taxonomy = %s
-                 WHERE tm.meta_key = %s AND tm.meta_value = %s
-                 LIMIT 1",
-                $taxonomy,
-                $meta_key,
-                (string) $skwirrel_id
-            ));
-            if ($existing_term_id) {
-                return (int) $existing_term_id;
-            }
-        }
-
-        // 2. Fall back to name matching
-        if ($name !== '') {
-            $term = term_exists($name, $taxonomy, $parent_term_id ?: 0);
-            if ($term && !is_wp_error($term)) {
-                $term_id = is_array($term) ? (int) $term['term_id'] : (int) $term;
-                // Store Skwirrel ID for next sync
-                if ($skwirrel_id !== null) {
-                    update_term_meta($term_id, $meta_key, (string) $skwirrel_id);
-                }
-                return $term_id;
-            }
-        }
-
-        // 3. Create new term
-        if ($name === '') {
-            return 0;
-        }
-        $args = [];
-        if ($parent_term_id) {
-            $args['parent'] = $parent_term_id;
-        }
-        $inserted = wp_insert_term($name, $taxonomy, $args);
-        if (is_wp_error($inserted)) {
-            // Handle "term already exists" race condition
-            if ($inserted->get_error_code() === 'term_exists') {
-                $term_id = (int) $inserted->get_error_data('term_exists');
-                if ($skwirrel_id !== null && $term_id) {
-                    update_term_meta($term_id, $meta_key, (string) $skwirrel_id);
-                }
-                return $term_id;
-            }
-            $this->logger->warning('Failed to create category term', [
-                'name' => $name,
-                'error' => $inserted->get_error_message(),
-            ]);
-            return 0;
-        }
-
-        $term_id = (int) $inserted['term_id'];
-        if ($skwirrel_id !== null) {
-            update_term_meta($term_id, $meta_key, (string) $skwirrel_id);
-        }
-        $this->logger->verbose('Category term created', [
-            'term_id' => $term_id,
-            'name' => $name,
-            'skwirrel_id' => $skwirrel_id,
-            'parent' => $parent_term_id,
-        ]);
-        return $term_id;
-    }
-
-    private function ensure_variant_taxonomy_exists(): void {
-        if (taxonomy_exists('pa_variant')) {
-            return;
-        }
-        if (!wc_attribute_taxonomy_id_by_name('variant')) {
-            global $wpdb;
-            $wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- WC attribute table has no API
-                $wpdb->prefix . 'woocommerce_attribute_taxonomies',
-                [
-                    'attribute_name' => 'variant',
-                    'attribute_label' => __('Variant', 'skwirrel-pim-wp-sync'),
-                    'attribute_type' => 'select',
-                    'attribute_orderby' => 'menu_order',
-                    'attribute_public' => 1,
-                ]
-            );
-            delete_transient('wc_attribute_taxonomies');
-        }
-        register_taxonomy('pa_variant', 'product', [
-            'labels' => ['name' => __('Variant', 'skwirrel-pim-wp-sync')],
-            'hierarchical' => false,
-            'show_ui' => true,
-            'query_var' => true,
-            'rewrite' => ['slug' => 'pa_variant'],
-        ]);
-    }
-
-    private function get_etim_attribute_slug(string $code): string {
-        $slug = 'etim_' . strtolower($code);
-        return strlen($slug) > 28 ? substr($slug, 0, 28) : $slug;
-    }
-
-    /**
-     * Update an existing WC attribute taxonomy label if the current label
-     * is a raw code (e.g. "EF000721") and we now have a proper label from the API.
-     */
-    private function maybe_update_attribute_label(string $slug, string $label): void {
-        if ($label === '' || preg_match('/^(EF|etim_)/i', $label)) {
-            return;
-        }
-        $attr_id = wc_attribute_taxonomy_id_by_name($slug);
-        if (!$attr_id) {
-            return;
-        }
-        global $wpdb;
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- attribute label update
-        $current_label = $wpdb->get_var($wpdb->prepare(
-            "SELECT attribute_label FROM {$wpdb->prefix}woocommerce_attribute_taxonomies WHERE attribute_id = %d",
-            $attr_id
-        ));
-        if ($current_label !== null && $current_label !== $label && preg_match('/^(EF|etim_)/i', $current_label)) {
-            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- attribute label update
-            $wpdb->update(
-                $wpdb->prefix . 'woocommerce_attribute_taxonomies',
-                ['attribute_label' => $label],
-                ['attribute_id' => $attr_id]
-            );
-            delete_transient('wc_attribute_taxonomies');
-        }
-    }
-
-    private function ensure_product_attribute_exists(string $slug, string $label): string {
-        $tax = wc_attribute_taxonomy_name($slug);
-        if (taxonomy_exists($tax)) {
-            return $tax;
-        }
-        if (!wc_attribute_taxonomy_id_by_name($slug)) {
-            if (function_exists('wc_create_attribute')) {
-                $result = wc_create_attribute([
-                    'name' => $label ?: $slug,
-                    'slug' => $slug,
-                    'type' => 'select',
-                    'order_by' => 'menu_order',
-                    'has_archives' => false,
-                ]);
-                if (is_wp_error($result)) {
-                    return $tax;
-                }
-            } else {
-                global $wpdb;
-                $wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- WC attribute table fallback for old WC versions
-                    $wpdb->prefix . 'woocommerce_attribute_taxonomies',
-                    [
-                        'attribute_name' => $slug,
-                        'attribute_label' => $label ?: $slug,
-                        'attribute_type' => 'select',
-                        'attribute_orderby' => 'menu_order',
-                        'attribute_public' => 1,
-                    ]
-                );
-                delete_transient('wc_attribute_taxonomies');
-                if (function_exists('WC_Cache_Helper') && method_exists('WC_Cache_Helper', 'invalidate_cache_group')) {
-                    WC_Cache_Helper::invalidate_cache_group('woocommerce-attributes');
-                }
-            }
-        }
-        $this->register_etim_taxonomy($tax, $slug, $label ?: $slug);
-        return $tax;
-    }
-
-    private function register_etim_taxonomy(string $taxonomy, string $slug, string $label): void {
-        if (taxonomy_exists($taxonomy)) {
-            return;
-        }
-        $permalinks = function_exists('wc_get_permalink_structure') ? wc_get_permalink_structure() : [];
-        $attr_rewrite = $permalinks['attribute_rewrite_slug'] ?? 'attribute';
-        $taxonomy_data = [
-            'hierarchical' => false,
-            'update_count_callback' => '_update_post_term_count',
-            'labels' => [
-                'name' => $label,
-                'singular_name' => $label,
-                /* translators: %s = attribute label */
-                'search_items' => sprintf(__('Search %s', 'skwirrel-pim-wp-sync'), $label),
-                /* translators: %s = attribute label */
-                'all_items' => sprintf(__('All %s', 'skwirrel-pim-wp-sync'), $label),
-                /* translators: %s = attribute label */
-                'edit_item' => sprintf(__('Edit %s', 'skwirrel-pim-wp-sync'), $label),
-                /* translators: %s = attribute label */
-                'update_item' => sprintf(__('Update %s', 'skwirrel-pim-wp-sync'), $label),
-                /* translators: %s = attribute label */
-                'add_new_item' => sprintf(__('Add new %s', 'skwirrel-pim-wp-sync'), $label),
-                /* translators: %s = attribute label */
-                'new_item_name' => sprintf(__('New %s', 'skwirrel-pim-wp-sync'), $label),
-            ],
-            'show_ui' => true,
-            'show_in_quick_edit' => false,
-            'show_in_menu' => false,
-            'meta_box_cb' => false,
-            'query_var' => true,
-            'rewrite' => $attr_rewrite && $slug
-                ? ['slug' => trailingslashit($attr_rewrite) . urldecode(sanitize_title($slug)), 'with_front' => false, 'hierarchical' => true]
-                : false,
-            'sort' => false,
-            'public' => true,
-            'capabilities' => [
-                'manage_terms' => 'manage_product_terms',
-                'edit_terms' => 'edit_product_terms',
-                'delete_terms' => 'delete_product_terms',
-                'assign_terms' => 'assign_product_terms',
-            ],
-        ];
-        register_taxonomy($taxonomy, ['product'], $taxonomy_data);
-        // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound -- WooCommerce global
-        global $wc_product_attributes;
-        if (!is_array($wc_product_attributes)) {
-            $wc_product_attributes = []; // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound
-        }
-        $wc_product_attributes[$taxonomy] = (object) [ // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound
-            'attribute_id' => wc_attribute_taxonomy_id_by_name($slug),
-            'attribute_name' => $slug,
-            'attribute_label' => $label,
-            'attribute_type' => 'select',
-            'attribute_orderby' => 'menu_order',
-            'attribute_public' => 1,
-        ];
     }
 
     private function write_variation_debug(string $sku, array $etim_codes, array $etim_values, array $product, array $variation_attrs): void {
