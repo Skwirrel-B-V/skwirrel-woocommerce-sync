@@ -18,6 +18,8 @@ class Skwirrel_WC_Sync_Service {
     private const OPTION_LAST_SYNC_RESULT = 'skwirrel_wc_sync_last_result';
     private const OPTION_SYNC_HISTORY = 'skwirrel_wc_sync_history';
     private const MAX_HISTORY_ENTRIES = 20;
+    private const SYNC_IN_PROGRESS = 'skwirrel_wc_sync_in_progress';
+    private const HEARTBEAT_TTL = 60;
 
     private Skwirrel_WC_Sync_Logger $logger;
     private Skwirrel_WC_Sync_Product_Mapper $mapper;
@@ -28,6 +30,14 @@ class Skwirrel_WC_Sync_Service {
     public function __construct() {
         $this->logger = new Skwirrel_WC_Sync_Logger();
         $this->mapper = new Skwirrel_WC_Sync_Product_Mapper();
+    }
+
+    /**
+     * Refresh the sync-in-progress transient so the UI knows the sync is still alive.
+     * If not refreshed within HEARTBEAT_TTL seconds, the transient expires automatically.
+     */
+    public static function sync_heartbeat(): void {
+        set_transient(self::SYNC_IN_PROGRESS, (string) time(), self::HEARTBEAT_TTL);
     }
 
     /**
@@ -42,6 +52,7 @@ class Skwirrel_WC_Sync_Service {
 
         $sync_started_at = time();
         $this->seen_category_ids = [];
+        self::sync_heartbeat();
 
         $client = $this->get_client();
         if (!$client) {
@@ -194,6 +205,7 @@ class Skwirrel_WC_Sync_Service {
             }
 
             foreach ($products as $product) {
+                self::sync_heartbeat();
                 try {
                     $product_id = $product['internal_product_code'] ?? $product['product_id'] ?? '?';
                     $skwirrel_product_id = $product['product_id'] ?? $product['id'] ?? null;
@@ -2005,6 +2017,7 @@ class Skwirrel_WC_Sync_Service {
         ];
 
         update_option(self::OPTION_LAST_SYNC_RESULT, $result, false);
+        delete_transient(self::SYNC_IN_PROGRESS);
 
         // Add to history
         $history = get_option(self::OPTION_SYNC_HISTORY, []);

@@ -4,7 +4,7 @@ Tags: woocommerce, sync, erp, pim, skwirrel
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.3.2
+Stable tag: 1.4.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -52,6 +52,17 @@ You can set an automatic schedule (hourly, twice daily, or daily) or synchronise
 The plugin uses the Skwirrel external ID as a unique key. Existing products are updated, not duplicated.
 
 == Changelog ==
+
+= 1.4.0 =
+* Brand sync: Skwirrel brands synced into WooCommerce product_brand taxonomy
+* Category tree sync: sync full category tree from a configurable super category ID
+* Sync progress indicator: spinning icon on menu item, blue status bar with auto-refresh
+* Sync button disabled while sync is in progress
+* Heartbeat mechanism: sync status auto-expires after 60s without activity
+* Purge: danger zone now also deletes product brands
+* Settings save clears sync-in-progress state
+* i18n: all UI strings switched to English source text
+* Updated translation files (POT + nl_NL, nl_BE, de_DE, fr_FR, fr_BE, en_US, en_GB)
 
 = 1.3.2 =
 * i18n: all UI strings switched to English source text

@@ -56,8 +56,6 @@ class Skwirrel_WC_Sync_Admin_Settings {
     }
 
     public function add_menu(): void {
-        $sync_in_progress = (bool) get_transient(self::SYNC_IN_PROGRESS);
-
         add_submenu_page(
             'woocommerce',
             __('Skwirrel Sync', 'skwirrel-pim-wp-sync'),
@@ -68,9 +66,6 @@ class Skwirrel_WC_Sync_Admin_Settings {
         );
 
         $menu_label = __('Sync Products', 'skwirrel-pim-wp-sync');
-        if ($sync_in_progress) {
-            $menu_label .= ' <span class="awaiting-mod skwirrel-sync-busy" title="Sync in progress">⟳</span>';
-        }
 
         $hook = add_menu_page(
             __('Sync Products', 'skwirrel-pim-wp-sync'),
@@ -91,7 +86,7 @@ class Skwirrel_WC_Sync_Admin_Settings {
 
         $token = bin2hex(random_bytes(16));
         set_transient(self::BG_SYNC_TRANSIENT . '_' . $token, '1', 120);
-        set_transient(self::SYNC_IN_PROGRESS, '1', 600);
+        set_transient(self::SYNC_IN_PROGRESS, (string) time(), 60);
 
         $url = add_query_arg([
             'action' => self::BG_SYNC_ACTION,
@@ -129,6 +124,7 @@ class Skwirrel_WC_Sync_Admin_Settings {
 
     public function on_settings_updated($old_value, $value, $option): void {
         if (is_array($value)) {
+            delete_transient(self::SYNC_IN_PROGRESS);
             Skwirrel_WC_Sync_Action_Scheduler::instance()->schedule();
         }
     }
@@ -247,7 +243,7 @@ class Skwirrel_WC_Sync_Admin_Settings {
 
         $token = bin2hex(random_bytes(16));
         set_transient(self::BG_SYNC_TRANSIENT . '_' . $token, '1', 120);
-        set_transient(self::SYNC_IN_PROGRESS, '1', 600);
+        set_transient(self::SYNC_IN_PROGRESS, (string) time(), 60);
 
         $url = add_query_arg([
             'action' => self::BG_SYNC_ACTION,
@@ -467,7 +463,27 @@ class Skwirrel_WC_Sync_Admin_Settings {
             $logger->info("Purge: {$categories_deleted} categorieën verwijderd.");
         }
 
-        // --- Step 5: Delete Skwirrel-created attribute taxonomies ---
+        // --- Step 5: Delete product_brand terms that were assigned to Skwirrel products ---
+        $brands_deleted = 0;
+        if (taxonomy_exists('product_brand')) {
+            $brand_terms = get_terms([
+                'taxonomy'   => 'product_brand',
+                'hide_empty' => false,
+                'fields'     => 'ids',
+            ]);
+            if (!is_wp_error($brand_terms) && !empty($brand_terms)) {
+                $logger->info('Purge: ' . count($brand_terms) . ' product brands found, deleting...');
+                foreach ($brand_terms as $brand_term_id) {
+                    $result = wp_delete_term((int) $brand_term_id, 'product_brand');
+                    if ($result === true) {
+                        ++$brands_deleted;
+                    }
+                }
+                $logger->info("Purge: {$brands_deleted} brands deleted.");
+            }
+        }
+
+        // --- Step 6: Delete Skwirrel-created attribute taxonomies ---
         // Matches: etim_* (all ETIM-based attributes) and variant (fallback attribute)
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- bulk purge operation
         $attribute_rows = $wpdb->get_results(
@@ -489,15 +505,14 @@ class Skwirrel_WC_Sync_Admin_Settings {
             $logger->info("Purge: {$attributes_deleted} attributen verwijderd.");
         }
 
-        // --- Step 6: Reset sync state options ---
+        // --- Step 7: Reset sync state options ---
         delete_option('skwirrel_wc_sync_last_sync');
         delete_option('skwirrel_wc_sync_last_result');
-        delete_option('skwirrel_wc_sync_history');
         delete_option('skwirrel_wc_sync_force_full_sync');
         $logger->info('Purge: sync-status opties gereset.');
 
-        // --- Step 7: Store purge result ---
-        $logger->info("Purge voltooid: {$deleted} producten, {$attachments_deleted} media, {$categories_deleted} categorieën, {$attributes_deleted} attributen (mode: {$mode_label})");
+        // --- Step 8: Store purge result ---
+        $logger->info("Purge voltooid: {$deleted} producten, {$attachments_deleted} media, {$categories_deleted} categorieën, {$brands_deleted} brands, {$attributes_deleted} attributen (mode: {$mode_label})");
 
         update_option('skwirrel_wc_sync_last_purge', [
             'timestamp' => time(),
@@ -505,6 +520,7 @@ class Skwirrel_WC_Sync_Admin_Settings {
             'products' => $deleted,
             'attachments' => $attachments_deleted,
             'categories' => $categories_deleted,
+            'brands' => $brands_deleted,
             'attributes' => $attributes_deleted,
         ], false);
     }
@@ -522,20 +538,18 @@ class Skwirrel_WC_Sync_Admin_Settings {
         }
         ?>
         <style>
-            .skwirrel-sync-busy {
-                display: inline-block;
-                animation: skwirrel-spin 1.2s linear infinite;
-                font-size: 14px;
-                min-width: 16px;
-                text-align: center;
-                background: #d63638 !important;
-            }
             @keyframes skwirrel-spin {
                 from { transform: rotate(0deg); }
                 to { transform: rotate(360deg); }
             }
             #toplevel_page_skwirrel-sync-now > a .dashicons-update {
                 animation: skwirrel-spin 1.2s linear infinite;
+            }
+            .skwirrel-sync-spinner {
+                display: inline-block;
+                animation: skwirrel-spin 1.2s linear infinite;
+                vertical-align: middle;
+                margin-right: 4px;
             }
         </style>
         <?php
@@ -605,7 +619,7 @@ class Skwirrel_WC_Sync_Admin_Settings {
         <?php if ($sync_in_progress) : ?>
             <div style="background: #d1ecf1; border: 1px solid #bee5eb; padding: 15px; border-radius: 4px; margin-bottom: 20px;">
                 <h3 style="margin-top: 0; color: #0c5460;">
-                    ⟳ <?php esc_html_e('Sync in progress…', 'skwirrel-pim-wp-sync'); ?>
+                    <span class="dashicons dashicons-update skwirrel-sync-spinner" style="color: #0c5460;"></span> <?php esc_html_e('Sync in progress…', 'skwirrel-pim-wp-sync'); ?>
                 </h3>
                 <p style="margin: 0; color: #0c5460;">
                     <?php esc_html_e('The page will refresh automatically when the sync is completed.', 'skwirrel-pim-wp-sync'); ?>
