@@ -2,6 +2,10 @@
 
 All notable changes to Skwirrel PIM Sync will be documented in this file.
 
+## [1.0.3] - 2026-02-25
+
+- chore: bump version to 1.3.1 (54de201)
+
 ## [1.0.2] - 2026-02-24
 
 - feat: add Custom Class sync from Skwirrel to WooCommerce product attributes (8684b3c)
