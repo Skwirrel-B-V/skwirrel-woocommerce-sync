@@ -41,3 +41,11 @@
     border-color: #8a2424;
     color: #fff;
 }
+
+/* Tab content spacing */
+.skwirrel-sync-wrap .nav-tab-wrapper {
+    margin-bottom: 20px;
+}
+.skwirrel-tab-content {
+    margin-top: 10px;
+}
