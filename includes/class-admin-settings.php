@@ -40,7 +40,6 @@ class Skwirrel_WC_Sync_Admin_Settings {
     private const BG_SYNC_TRANSIENT = 'skwirrel_wc_sync_bg_token';
     private const BG_PURGE_ACTION = 'skwirrel_wc_sync_purge_all';
     private const BG_PURGE_TRANSIENT = 'skwirrel_wc_sync_purge_token';
-
     private function __construct() {
         add_action('admin_menu', [$this, 'add_menu'], 99);
         add_action('admin_init', [$this, 'register_settings']);
@@ -139,6 +138,7 @@ class Skwirrel_WC_Sync_Admin_Settings {
         $out['sync_interval'] = $input['sync_interval'] ?? '';
         $out['batch_size'] = isset($input['batch_size']) ? max(10, min(500, (int) $input['batch_size'])) : 100;
         $out['sync_categories'] = !empty($input['sync_categories']);
+        $out['super_category_id'] = isset($input['super_category_id']) ? sanitize_text_field(trim($input['super_category_id'])) : '';
         $out['sync_grouped_products'] = !empty($input['sync_grouped_products']);
         $out['sync_images'] = ($input['sync_images'] ?? 'yes') === 'yes';
         // Image language: dropdown or custom
@@ -764,6 +764,13 @@ class Skwirrel_WC_Sync_Admin_Settings {
                     <th scope="row"><?php esc_html_e('Sync categories', 'skwirrel-pim-wp-sync'); ?></th>
                     <td>
                         <label><input type="checkbox" name="<?php echo esc_attr(self::OPTION_KEY); ?>[sync_categories]" value="1" <?php checked(!empty($opts['sync_categories'])); ?> /> <?php esc_html_e('Create and assign categories from product_groups', 'skwirrel-pim-wp-sync'); ?></label>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><label for="super_category_id"><?php esc_html_e('Super category ID', 'skwirrel-pim-wp-sync'); ?></label></th>
+                    <td>
+                        <input type="text" id="super_category_id" name="<?php echo esc_attr(self::OPTION_KEY); ?>[super_category_id]" value="<?php echo esc_attr($opts['super_category_id'] ?? ''); ?>" class="small-text" placeholder="<?php esc_attr_e('e.g. 42', 'skwirrel-pim-wp-sync'); ?>" />
+                        <p class="description"><?php esc_html_e('Skwirrel super category ID. The entire category tree under this category will be synced to WooCommerce.', 'skwirrel-pim-wp-sync'); ?></p>
                     </td>
                 </tr>
                 <tr>

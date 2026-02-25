@@ -375,10 +375,6 @@ class Skwirrel_WC_Sync_Product_Mapper {
      */
     public function get_attributes(array $product): array {
         $attrs = [];
-        $brand = $product['brand_name'] ?? '';
-        if (!empty($brand)) {
-            $attrs['Brand'] = $brand;
-        }
         $manufacturer = $product['manufacturer_name'] ?? '';
         if (!empty($manufacturer)) {
             $attrs['Manufacturer'] = $manufacturer;
@@ -398,7 +394,7 @@ class Skwirrel_WC_Sync_Product_Mapper {
         $this->logger->verbose('get_attributes result', [
             'product' => $product_id,
             'total_attrs' => count($attrs),
-            'base_attrs' => ['brand' => !empty($brand), 'manufacturer' => !empty($manufacturer), 'gtin' => !empty($gtin)],
+            'base_attrs' => ['manufacturer' => !empty($manufacturer), 'gtin' => !empty($gtin)],
             'etim_attrs' => count($etim),
             'etim_items' => count($etimItems),
         ]);

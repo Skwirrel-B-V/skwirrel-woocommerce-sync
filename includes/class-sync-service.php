@@ -114,6 +114,11 @@ class Skwirrel_WC_Sync_Service {
             'collection_ids' => $collection_ids ?: '(all)',
         ]);
 
+        // Sync category tree from super category (before products)
+        if (!empty($options['sync_categories']) && !empty($options['super_category_id'])) {
+            $this->sync_category_tree($client, $options);
+        }
+
         $product_to_group_map = [];
         if (!empty($options['sync_grouped_products'])) {
             $grouped_result = $this->sync_grouped_products_first($client, $options);
@@ -594,6 +599,7 @@ class Skwirrel_WC_Sync_Service {
         }
 
         $this->assign_categories($id, $product);
+        $this->assign_brand($id, $product);
 
         if (!empty($attrs)) {
             $product_attrs = [];
@@ -849,6 +855,7 @@ class Skwirrel_WC_Sync_Service {
         }
 
         $this->assign_categories($id, $group);
+        $this->assign_brand($id, $group);
 
         return $is_new ? 'created' : 'updated';
     }
@@ -1063,6 +1070,186 @@ class Skwirrel_WC_Sync_Service {
     }
 
     /**
+     * Sync the full category tree from a Skwirrel super category via getCategories API.
+     * Creates/updates WooCommerce product_cat terms for the entire tree.
+     */
+    private function sync_category_tree(Skwirrel_WC_Sync_JsonRpc_Client $client, array $options): void {
+        $super_id = (int) ($options['super_category_id'] ?? 0);
+        if ($super_id <= 0) {
+            return;
+        }
+
+        $this->logger->info('Syncing category tree', ['super_category_id' => $super_id]);
+
+        $params = [
+            'category_id' => $super_id,
+            'include_children' => true,
+            'include_category_translations' => true,
+        ];
+
+        $languages = $this->get_include_languages();
+        if (!empty($languages)) {
+            $params['include_languages'] = $languages;
+        }
+
+        $result = $client->call('getCategories', $params);
+
+        if (!$result['success']) {
+            $err = $result['error'] ?? ['message' => 'Unknown error'];
+            $this->logger->error('getCategories API error', $err);
+            return;
+        }
+
+        $data = $result['result'] ?? [];
+        $categories = $data['categories'] ?? $data;
+        if (!is_array($categories)) {
+            $this->logger->warning('getCategories returned unexpected format', ['type' => gettype($categories)]);
+            return;
+        }
+
+        $this->logger->info('Category tree received', ['count' => count($categories)]);
+
+        $tax = 'product_cat';
+        $cat_id_meta = Skwirrel_WC_Sync_Product_Mapper::CATEGORY_ID_META;
+        $lang = $options['image_language'] ?? 'nl';
+
+        // Flatten the tree: build a list of all categories with parent references.
+        $flat = [];
+        $this->flatten_category_tree($categories, $flat, $lang);
+
+        if (empty($flat)) {
+            $this->logger->info('No categories found in tree');
+            return;
+        }
+
+        // Resolve in order: parents before children.
+        // Build lookup by Skwirrel category ID.
+        $by_id = [];
+        foreach ($flat as $cat) {
+            if ($cat['id'] !== null) {
+                $by_id[$cat['id']] = $cat;
+            }
+        }
+
+        $resolved = []; // skwirrel_id => wc_term_id
+        $created_count = 0;
+
+        foreach ($flat as $cat) {
+            $cat_id = $cat['id'] ?? null;
+            if ($cat_id !== null && isset($resolved[$cat_id])) {
+                continue;
+            }
+
+            $parent_id = $cat['parent_id'] ?? null;
+            $wc_parent = 0;
+
+            // Resolve parent first
+            if ($parent_id !== null && isset($resolved[$parent_id])) {
+                $wc_parent = $resolved[$parent_id];
+            } elseif ($parent_id !== null && $parent_id !== $super_id) {
+                // Parent not yet resolved but exists in our set — find/create it
+                if (isset($by_id[$parent_id])) {
+                    $wc_parent = $this->find_or_create_category_term(
+                        $parent_id,
+                        $by_id[$parent_id]['name'],
+                        $tax,
+                        $cat_id_meta,
+                        0
+                    );
+                    if ($wc_parent) {
+                        $resolved[$parent_id] = $wc_parent;
+                    }
+                }
+            }
+
+            $wc_term_id = $this->find_or_create_category_term(
+                $cat_id,
+                $cat['name'],
+                $tax,
+                $cat_id_meta,
+                $wc_parent
+            );
+
+            if ($wc_term_id && $cat_id !== null) {
+                $resolved[$cat_id] = $wc_term_id;
+                $created_count++;
+            }
+        }
+
+        $this->logger->info('Category tree synced', [
+            'super_category_id' => $super_id,
+            'total_categories' => count($flat),
+            'resolved' => $created_count,
+        ]);
+    }
+
+    /**
+     * Recursively flatten a nested category tree into a flat list.
+     *
+     * @param array  $categories Nested category array from API.
+     * @param array  $flat       Output: flat list of ['id', 'name', 'parent_id'].
+     * @param string $lang       Preferred language for category name.
+     */
+    private function flatten_category_tree(array $categories, array &$flat, string $lang): void {
+        foreach ($categories as $cat) {
+            $cat_id = $cat['category_id'] ?? $cat['product_category_id'] ?? $cat['id'] ?? null;
+            if ($cat_id !== null) {
+                $cat_id = (int) $cat_id;
+            }
+
+            $name = $this->pick_category_name($cat, $lang);
+            if ($name === '' && isset($cat['category_name'])) {
+                $name = $cat['category_name'];
+            }
+
+            $parent_id = $cat['parent_category_id'] ?? null;
+            if ($parent_id !== null) {
+                $parent_id = (int) $parent_id;
+            }
+
+            if ($name !== '') {
+                $flat[] = [
+                    'id' => $cat_id,
+                    'name' => $name,
+                    'parent_id' => $parent_id,
+                ];
+            }
+
+            // Recurse into children
+            $children = $cat['_children'] ?? $cat['_categories'] ?? $cat['children'] ?? [];
+            if (!empty($children) && is_array($children)) {
+                $this->flatten_category_tree($children, $flat, $lang);
+            }
+        }
+    }
+
+    /**
+     * Pick the best category name based on language preference.
+     */
+    private function pick_category_name(array $cat, string $lang): string {
+        $translations = $cat['_category_translations'] ?? [];
+        if (!empty($translations) && is_array($translations)) {
+            foreach ($translations as $t) {
+                $t_lang = $t['language'] ?? '';
+                if (stripos($t_lang, $lang) === 0 || stripos($lang, $t_lang) === 0) {
+                    $name = $t['category_name'] ?? $t['product_category_name'] ?? $t['name'] ?? '';
+                    if ($name !== '') {
+                        return $name;
+                    }
+                }
+            }
+            // Fallback: first translation with a name
+            foreach ($translations as $t) {
+                $name = $t['category_name'] ?? $t['product_category_name'] ?? $t['name'] ?? '';
+                if ($name !== '') {
+                    return $name;
+                }
+            }
+        }
+        return $cat['category_name'] ?? $cat['product_category_name'] ?? $cat['name'] ?? '';
+    }
+
+    /**
      * Assign product categories to a WooCommerce product.
      * Matches by Skwirrel category ID first (term meta), then by name.
      * Supports parent/child hierarchy from _categories data.
@@ -1157,6 +1344,51 @@ class Skwirrel_WC_Sync_Service {
                 'names' => array_column($categories, 'name'),
             ]);
         }
+    }
+
+    /**
+     * Assign product_brand taxonomy term from Skwirrel brand_name.
+     */
+    private function assign_brand(int $wc_product_id, array $product): void {
+        if (!taxonomy_exists('product_brand')) {
+            return;
+        }
+
+        $brand_name = trim($product['brand_name'] ?? '');
+        if ($brand_name === '') {
+            return;
+        }
+
+        $term = term_exists($brand_name, 'product_brand');
+        if ($term && !is_wp_error($term)) {
+            $term_id = is_array($term) ? (int) $term['term_id'] : (int) $term;
+        } else {
+            $inserted = wp_insert_term($brand_name, 'product_brand');
+            if (is_wp_error($inserted)) {
+                if ($inserted->get_error_code() === 'term_exists') {
+                    $term_id = (int) $inserted->get_error_data('term_exists');
+                } else {
+                    $this->logger->warning('Failed to create brand term', [
+                        'brand' => $brand_name,
+                        'error' => $inserted->get_error_message(),
+                    ]);
+                    return;
+                }
+            } else {
+                $term_id = (int) $inserted['term_id'];
+                $this->logger->verbose('Brand term created', [
+                    'term_id' => $term_id,
+                    'brand' => $brand_name,
+                ]);
+            }
+        }
+
+        wp_set_object_terms($wc_product_id, [$term_id], 'product_brand');
+        $this->logger->verbose('Brand assigned', [
+            'wc_product_id' => $wc_product_id,
+            'brand' => $brand_name,
+            'term_id' => $term_id,
+        ]);
     }
 
     /**
