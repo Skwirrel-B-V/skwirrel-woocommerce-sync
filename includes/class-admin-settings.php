@@ -40,12 +40,14 @@ class Skwirrel_WC_Sync_Admin_Settings {
     private const BG_SYNC_TRANSIENT = 'skwirrel_wc_sync_bg_token';
     private const BG_PURGE_ACTION = 'skwirrel_wc_sync_purge_all';
     private const BG_PURGE_TRANSIENT = 'skwirrel_wc_sync_purge_token';
+    private const SYNC_IN_PROGRESS = 'skwirrel_wc_sync_in_progress';
     private function __construct() {
         add_action('admin_menu', [$this, 'add_menu'], 99);
         add_action('admin_init', [$this, 'register_settings']);
         add_action('admin_post_skwirrel_wc_sync_test', [$this, 'handle_test_connection']);
         add_action('admin_post_skwirrel_wc_sync_run', [$this, 'handle_sync_now']);
         add_action('admin_enqueue_scripts', [$this, 'enqueue_assets']);
+        add_action('admin_head', [$this, 'render_sync_busy_css']);
         add_action('wp_ajax_' . self::BG_SYNC_ACTION, [$this, 'handle_background_sync']);
         add_action('wp_ajax_nopriv_' . self::BG_SYNC_ACTION, [$this, 'handle_background_sync']);
         add_action('admin_post_skwirrel_wc_sync_purge', [$this, 'handle_purge_now']);
@@ -54,6 +56,8 @@ class Skwirrel_WC_Sync_Admin_Settings {
     }
 
     public function add_menu(): void {
+        $sync_in_progress = (bool) get_transient(self::SYNC_IN_PROGRESS);
+
         add_submenu_page(
             'woocommerce',
             __('Skwirrel Sync', 'skwirrel-pim-wp-sync'),
@@ -63,9 +67,14 @@ class Skwirrel_WC_Sync_Admin_Settings {
             [$this, 'render_page']
         );
 
+        $menu_label = __('Sync Products', 'skwirrel-pim-wp-sync');
+        if ($sync_in_progress) {
+            $menu_label .= ' <span class="awaiting-mod skwirrel-sync-busy" title="Sync in progress">⟳</span>';
+        }
+
         $hook = add_menu_page(
             __('Sync Products', 'skwirrel-pim-wp-sync'),
-            __('Sync Products', 'skwirrel-pim-wp-sync'),
+            $menu_label,
             'manage_woocommerce',
             'skwirrel-sync-now',
             '__return_null',
@@ -82,6 +91,7 @@ class Skwirrel_WC_Sync_Admin_Settings {
 
         $token = bin2hex(random_bytes(16));
         set_transient(self::BG_SYNC_TRANSIENT . '_' . $token, '1', 120);
+        set_transient(self::SYNC_IN_PROGRESS, '1', 600);
 
         $url = add_query_arg([
             'action' => self::BG_SYNC_ACTION,
@@ -91,7 +101,6 @@ class Skwirrel_WC_Sync_Admin_Settings {
         $redirect = add_query_arg([
             'page' => self::PAGE_SLUG,
             'tab' => 'sync',
-            'sync' => 'queued',
         ], admin_url('admin.php'));
 
         wp_safe_redirect($redirect);
@@ -238,6 +247,7 @@ class Skwirrel_WC_Sync_Admin_Settings {
 
         $token = bin2hex(random_bytes(16));
         set_transient(self::BG_SYNC_TRANSIENT . '_' . $token, '1', 120);
+        set_transient(self::SYNC_IN_PROGRESS, '1', 600);
 
         $url = add_query_arg([
             'action' => self::BG_SYNC_ACTION,
@@ -247,7 +257,6 @@ class Skwirrel_WC_Sync_Admin_Settings {
         $redirect = add_query_arg([
             'page' => self::PAGE_SLUG,
             'tab' => 'sync',
-            'sync' => 'queued',
         ], admin_url('admin.php'));
 
         wp_safe_redirect($redirect);
@@ -279,6 +288,8 @@ class Skwirrel_WC_Sync_Admin_Settings {
 
         $service = new Skwirrel_WC_Sync_Service();
         $service->run_sync(false);
+
+        delete_transient(self::SYNC_IN_PROGRESS);
 
         wp_die('', 200);
     }
@@ -505,6 +516,31 @@ class Skwirrel_WC_Sync_Admin_Settings {
         wp_enqueue_style('skwirrel-admin', SKWIRREL_WC_SYNC_PLUGIN_URL . 'assets/admin.css', [], SKWIRREL_WC_SYNC_VERSION);
     }
 
+    public function render_sync_busy_css(): void {
+        if (!get_transient(self::SYNC_IN_PROGRESS)) {
+            return;
+        }
+        ?>
+        <style>
+            .skwirrel-sync-busy {
+                display: inline-block;
+                animation: skwirrel-spin 1.2s linear infinite;
+                font-size: 14px;
+                min-width: 16px;
+                text-align: center;
+                background: #d63638 !important;
+            }
+            @keyframes skwirrel-spin {
+                from { transform: rotate(0deg); }
+                to { transform: rotate(360deg); }
+            }
+            #toplevel_page_skwirrel-sync-now > a .dashicons-update {
+                animation: skwirrel-spin 1.2s linear infinite;
+            }
+        </style>
+        <?php
+    }
+
     public function render_page(): void {
         if (!current_user_can('manage_woocommerce')) {
             wp_die(esc_html__('Access denied.', 'skwirrel-pim-wp-sync'));
@@ -522,9 +558,14 @@ class Skwirrel_WC_Sync_Admin_Settings {
         $base_url = admin_url('admin.php?page=' . self::PAGE_SLUG);
 
         ?>
+        <?php $sync_in_progress = (bool) get_transient(self::SYNC_IN_PROGRESS); ?>
         <div class="wrap skwirrel-sync-wrap">
             <h1 class="wp-heading-inline"><?php esc_html_e('Skwirrel PIM Sync', 'skwirrel-pim-wp-sync'); ?></h1>
-            <a href="<?php echo esc_url(wp_nonce_url(admin_url('admin-post.php?action=skwirrel_wc_sync_run'), 'skwirrel_wc_sync_run', '_wpnonce')); ?>" class="page-title-action"><?php esc_html_e('Sync Products', 'skwirrel-pim-wp-sync'); ?></a>
+            <?php if ($sync_in_progress) : ?>
+                <span class="page-title-action" style="opacity: 0.5; pointer-events: none; cursor: default;">⟳ <?php esc_html_e('Sync in progress…', 'skwirrel-pim-wp-sync'); ?></span>
+            <?php else : ?>
+                <a href="<?php echo esc_url(wp_nonce_url(admin_url('admin-post.php?action=skwirrel_wc_sync_run'), 'skwirrel_wc_sync_run', '_wpnonce')); ?>" class="page-title-action"><?php esc_html_e('Sync Products', 'skwirrel-pim-wp-sync'); ?></a>
+            <?php endif; ?>
             <hr class="wp-header-end">
 
             <nav class="nav-tab-wrapper">
@@ -556,11 +597,22 @@ class Skwirrel_WC_Sync_Admin_Settings {
         $last_sync = Skwirrel_WC_Sync_Service::get_last_sync();
         $last_result = Skwirrel_WC_Sync_Service::get_last_result();
         $sync_history = Skwirrel_WC_Sync_Service::get_sync_history();
+        $sync_in_progress = (bool) get_transient(self::SYNC_IN_PROGRESS);
 
         ?>
         <h2><?php esc_html_e('Sync status', 'skwirrel-pim-wp-sync'); ?></h2>
 
-        <?php if ($last_result) : ?>
+        <?php if ($sync_in_progress) : ?>
+            <div style="background: #d1ecf1; border: 1px solid #bee5eb; padding: 15px; border-radius: 4px; margin-bottom: 20px;">
+                <h3 style="margin-top: 0; color: #0c5460;">
+                    ⟳ <?php esc_html_e('Sync in progress…', 'skwirrel-pim-wp-sync'); ?>
+                </h3>
+                <p style="margin: 0; color: #0c5460;">
+                    <?php esc_html_e('The page will refresh automatically when the sync is completed.', 'skwirrel-pim-wp-sync'); ?>
+                </p>
+            </div>
+            <script>setTimeout(function(){ window.location.reload(); }, 5000);</script>
+        <?php elseif ($last_result) : ?>
             <div style="background: <?php echo $last_result['success'] ? '#d4edda' : '#f8d7da'; ?>; border: 1px solid <?php echo $last_result['success'] ? '#c3e6cb' : '#f5c6cb'; ?>; padding: 15px; border-radius: 4px; margin-bottom: 20px;">
                 <h3 style="margin-top: 0; color: <?php echo $last_result['success'] ? '#155724' : '#721c24'; ?>;">
                     <?php if ($last_result['success']) : ?>

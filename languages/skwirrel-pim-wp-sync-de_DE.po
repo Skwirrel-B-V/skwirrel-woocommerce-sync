@@ -448,6 +448,26 @@ msgstr "(mit Attributen: %1$d, ohne: %2$d)"
 msgid "Sync completed. Check the logs for details."
 msgstr "Synchronisierung abgeschlossen. Überprüfen Sie die Protokolle für Details."
 
+#: includes/class-admin-settings.php
+msgid "Sync in progress…"
+msgstr "Synchronisierung läuft…"
+
+#: includes/class-admin-settings.php
+msgid "The page will refresh automatically when the sync is completed."
+msgstr "Die Seite wird automatisch aktualisiert, wenn die Synchronisierung abgeschlossen ist."
+
+#: includes/class-admin-settings.php
+msgid "Super category ID"
+msgstr "Superkategorie-ID"
+
+#: includes/class-admin-settings.php
+msgid "e.g. 42"
+msgstr "z.B. 42"
+
+#: includes/class-admin-settings.php
+msgid "Skwirrel super category ID. The entire category tree under this category will be synced to WooCommerce."
+msgstr "Skwirrel Superkategorie-ID. Der gesamte Kategoriebaum unter dieser Kategorie wird mit WooCommerce synchronisiert."
+
 #: includes/class-product-mapper.php
 msgid "Manual"
 msgstr "Anleitung"
