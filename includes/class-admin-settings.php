@@ -51,6 +51,7 @@ class Skwirrel_WC_Sync_Admin_Settings {
         add_action('wp_ajax_' . self::BG_SYNC_ACTION, [$this, 'handle_background_sync']);
         add_action('wp_ajax_nopriv_' . self::BG_SYNC_ACTION, [$this, 'handle_background_sync']);
         add_action('admin_post_skwirrel_wc_sync_purge', [$this, 'handle_purge_now']);
+        add_action('admin_post_skwirrel_wc_sync_clear_history', [$this, 'handle_clear_history']);
         add_action('wp_ajax_' . self::BG_PURGE_ACTION, [$this, 'handle_background_purge']);
         add_action('wp_ajax_nopriv_' . self::BG_PURGE_ACTION, [$this, 'handle_background_purge']);
     }
@@ -345,6 +346,35 @@ class Skwirrel_WC_Sync_Admin_Settings {
         $this->purge_all_skwirrel_products($permanent);
 
         wp_die('', 200);
+    }
+
+    public function handle_clear_history(): void {
+        if (!current_user_can('manage_woocommerce')) {
+            wp_die(esc_html__('Access denied.', 'skwirrel-pim-wp-sync'));
+        }
+        check_admin_referer('skwirrel_wc_sync_clear_history', '_wpnonce');
+
+        $period = isset($_POST['history_period']) ? sanitize_text_field(wp_unslash($_POST['history_period'])) : 'all';
+        $history = Skwirrel_WC_Sync_Service::get_sync_history();
+
+        if ($period === 'all') {
+            $history = [];
+        } else {
+            $days = (int) $period;
+            $cutoff = time() - ($days * DAY_IN_SECONDS);
+            $history = array_filter($history, static function (array $entry) use ($cutoff): bool {
+                return !empty($entry['timestamp']) && $entry['timestamp'] >= $cutoff;
+            });
+            $history = array_values($history);
+        }
+
+        update_option('skwirrel_wc_sync_history', $history, false);
+
+        wp_safe_redirect(add_query_arg([
+            'page' => self::PAGE_SLUG,
+            'tab' => 'sync',
+        ], admin_url('admin.php')));
+        exit;
     }
 
     private function purge_all_skwirrel_products(bool $permanent): void {
@@ -712,7 +742,20 @@ class Skwirrel_WC_Sync_Admin_Settings {
         <?php endif; ?>
 
         <?php if (!empty($sync_history)) : ?>
-            <h2 style="margin-top: 30px;"><?php esc_html_e('Sync history', 'skwirrel-pim-wp-sync'); ?></h2>
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 30px;">
+                <h2 style="margin: 0;"><?php esc_html_e('Sync history', 'skwirrel-pim-wp-sync'); ?></h2>
+                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="display: flex; align-items: center; gap: 6px;">
+                    <input type="hidden" name="action" value="skwirrel_wc_sync_clear_history" />
+                    <?php wp_nonce_field('skwirrel_wc_sync_clear_history', '_wpnonce'); ?>
+                    <select name="history_period">
+                        <option value="all"><?php esc_html_e('All', 'skwirrel-pim-wp-sync'); ?></option>
+                        <option value="7"><?php esc_html_e('Older than 7 days', 'skwirrel-pim-wp-sync'); ?></option>
+                        <option value="30"><?php esc_html_e('Older than 30 days', 'skwirrel-pim-wp-sync'); ?></option>
+                        <option value="90"><?php esc_html_e('Older than 90 days', 'skwirrel-pim-wp-sync'); ?></option>
+                    </select>
+                    <button type="submit" class="button" onclick="if(this.form.history_period.value==='all'){return confirm('<?php echo esc_js(__('Delete all sync history?', 'skwirrel-pim-wp-sync')); ?>');}return true;"><?php esc_html_e('Delete history', 'skwirrel-pim-wp-sync'); ?></button>
+                </form>
+            </div>
             <table class="widefat striped" style="margin-top: 10px;">
                 <thead>
                     <tr>

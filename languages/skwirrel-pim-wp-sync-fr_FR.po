@@ -543,3 +543,27 @@ msgstr "Ce produit est géré par Skwirrel et sera recréé lors de la prochaine
 #: includes/class-delete-protection.php
 msgid "This category was created by Skwirrel Sync and will be recreated during the next sync.\n\nAre you sure you want to delete this category?"
 msgstr "Cette catégorie a été créée par Skwirrel Sync et sera recréée lors de la prochaine synchronisation.\n\nÊtes-vous sûr de vouloir supprimer cette catégorie ?"
+
+#: includes/class-admin-settings.php
+msgid "All"
+msgstr "Tout"
+
+#: includes/class-admin-settings.php
+msgid "Older than 7 days"
+msgstr "Plus ancien que 7 jours"
+
+#: includes/class-admin-settings.php
+msgid "Older than 30 days"
+msgstr "Plus ancien que 30 jours"
+
+#: includes/class-admin-settings.php
+msgid "Older than 90 days"
+msgstr "Plus ancien que 90 jours"
+
+#: includes/class-admin-settings.php
+msgid "Delete history"
+msgstr "Supprimer l'historique"
+
+#: includes/class-admin-settings.php
+msgid "Delete all sync history?"
+msgstr "Supprimer tout l'historique de synchronisation ?"

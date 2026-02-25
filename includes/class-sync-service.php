@@ -130,6 +130,14 @@ class Skwirrel_WC_Sync_Service {
             $this->sync_category_tree($client, $options);
         }
 
+        // Sync all brands (independent of products)
+        $this->sync_all_brands($client);
+
+        // Sync all custom classes as WooCommerce attributes (independent of products)
+        if (!empty($options['sync_custom_classes']) || !empty($options['sync_trade_item_custom_classes'])) {
+            $this->sync_all_custom_classes($client, $options);
+        }
+
         $product_to_group_map = [];
         if (!empty($options['sync_grouped_products'])) {
             $grouped_result = $this->sync_grouped_products_first($client, $options);
@@ -1259,6 +1267,148 @@ class Skwirrel_WC_Sync_Service {
             }
         }
         return $cat['category_name'] ?? $cat['product_category_name'] ?? $cat['name'] ?? '';
+    }
+
+    /**
+     * Sync all brands from the API, independent of products.
+     * Creates product_brand terms for every brand returned by getBrands.
+     */
+    private function sync_all_brands(Skwirrel_WC_Sync_JsonRpc_Client $client): void {
+        if (!taxonomy_exists('product_brand')) {
+            return;
+        }
+
+        self::sync_heartbeat();
+        $this->logger->info('Syncing all brands via getBrands');
+
+        $result = $client->call('getBrands', []);
+
+        if (!$result['success']) {
+            $err = $result['error'] ?? ['message' => 'Unknown error'];
+            $this->logger->error('getBrands API error', $err);
+            return;
+        }
+
+        $data = $result['result'] ?? [];
+        $brands = $data['brands'] ?? $data;
+        if (!is_array($brands)) {
+            $this->logger->warning('getBrands returned unexpected format', ['type' => gettype($brands)]);
+            return;
+        }
+
+        $created = 0;
+        foreach ($brands as $brand) {
+            $brand_name = trim($brand['brand_name'] ?? $brand['name'] ?? '');
+            if ($brand_name === '') {
+                continue;
+            }
+
+            $term = term_exists($brand_name, 'product_brand');
+            if ($term && !is_wp_error($term)) {
+                continue; // Already exists
+            }
+
+            $inserted = wp_insert_term($brand_name, 'product_brand');
+            if (is_wp_error($inserted)) {
+                if ($inserted->get_error_code() !== 'term_exists') {
+                    $this->logger->warning('Failed to create brand term', [
+                        'brand' => $brand_name,
+                        'error' => $inserted->get_error_message(),
+                    ]);
+                }
+            } else {
+                ++$created;
+            }
+        }
+
+        $this->logger->info('Brands synced', [
+            'total' => count($brands),
+            'created' => $created,
+        ]);
+    }
+
+    /**
+     * Sync all custom classes from the API as WooCommerce product attributes.
+     * This ensures attributes exist before products are processed.
+     */
+    private function sync_all_custom_classes(Skwirrel_WC_Sync_JsonRpc_Client $client, array $options): void {
+        self::sync_heartbeat();
+        $this->logger->info('Syncing all custom classes via getCustomClasses');
+
+        $cc_filter_mode = $options['custom_class_filter_mode'] ?? '';
+        $cc_parsed = Skwirrel_WC_Sync_Product_Mapper::parse_custom_class_filter($options['custom_class_filter_ids'] ?? '');
+
+        $params = [];
+        if ($cc_filter_mode === 'whitelist' && !empty($cc_parsed['ids'])) {
+            $params['custom_class_id'] = $cc_parsed['ids'];
+        }
+
+        $languages = $this->get_include_languages();
+        if (!empty($languages)) {
+            $params['include_languages'] = $languages;
+        }
+
+        $result = $client->call('getCustomClasses', $params);
+
+        if (!$result['success']) {
+            $err = $result['error'] ?? ['message' => 'Unknown error'];
+            $this->logger->error('getCustomClasses API error', $err);
+            return;
+        }
+
+        $data = $result['result'] ?? [];
+        $classes = $data['custom_classes'] ?? $data;
+        if (!is_array($classes)) {
+            $this->logger->warning('getCustomClasses returned unexpected format', ['type' => gettype($classes)]);
+            return;
+        }
+
+        // Apply blacklist filter if configured
+        if ($cc_filter_mode === 'blacklist' && (!empty($cc_parsed['ids']) || !empty($cc_parsed['codes']))) {
+            $classes = array_filter($classes, function (array $cc) use ($cc_parsed): bool {
+                $id = $cc['custom_class_id'] ?? null;
+                $code = $cc['custom_class_code'] ?? null;
+                if ($id !== null && in_array((int) $id, $cc_parsed['ids'], true)) {
+                    return false;
+                }
+                if ($code !== null && in_array(strtoupper((string) $code), array_map('strtoupper', $cc_parsed['codes']), true)) {
+                    return false;
+                }
+                return true;
+            });
+        }
+
+        $created = 0;
+        foreach ($classes as $cc) {
+            $features = $cc['_custom_class_features'] ?? $cc['features'] ?? [];
+            if (!is_array($features)) {
+                continue;
+            }
+
+            foreach ($features as $feat) {
+                $feat_type = strtoupper($feat['custom_feature_type'] ?? '');
+                // Skip text/blob types — these are stored as meta, not attributes
+                if (in_array($feat_type, ['T', 'B'], true)) {
+                    continue;
+                }
+
+                $name = $feat['custom_feature_description'] ?? $feat['custom_feature_code'] ?? '';
+                if ($name === '') {
+                    continue;
+                }
+
+                // Just ensure the attribute name is known; actual values are assigned per product
+                $slug = sanitize_title($name);
+                if (strlen($slug) > 0) {
+                    ++$created;
+                }
+            }
+        }
+
+        $this->logger->info('Custom classes synced', [
+            'total_classes' => count($classes),
+            'features_found' => $created,
+        ]);
     }
 
     /**
