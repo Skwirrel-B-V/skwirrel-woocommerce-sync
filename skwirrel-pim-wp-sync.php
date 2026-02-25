@@ -65,7 +65,12 @@ final class Skwirrel_WC_Sync_Plugin {
     }
 
     private function __construct() {
+        add_action('init', [$this, 'load_textdomain']);
         add_action('plugins_loaded', [$this, 'init']);
+    }
+
+    public function load_textdomain(): void {
+        load_plugin_textdomain('skwirrel-pim-wp-sync', false, dirname(plugin_basename(SKWIRREL_WC_SYNC_PLUGIN_FILE)) . '/languages');
     }
 
     public function init(): void {
