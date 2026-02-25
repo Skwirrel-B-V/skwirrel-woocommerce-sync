@@ -53,7 +53,7 @@ class Skwirrel_WC_Sync_Product_Documents {
             return $tabs;
         }
         $tabs['skwirrel_documents'] = [
-            'title'    => __('Documenten', 'skwirrel-pim-wp-sync'),
+            'title'    => __('Documents', 'skwirrel-pim-wp-sync'),
             'priority' => 25,
             'callback' => [$this, 'render_product_tab'],
         ];
@@ -97,7 +97,7 @@ class Skwirrel_WC_Sync_Product_Documents {
     public function add_meta_box(): void {
         add_meta_box(
             'skwirrel_product_documents',
-            __('Skwirrel documenten', 'skwirrel-pim-wp-sync'),
+            __('Skwirrel documents', 'skwirrel-pim-wp-sync'),
             [$this, 'render_meta_box'],
             'product',
             'side',
@@ -115,7 +115,7 @@ class Skwirrel_WC_Sync_Product_Documents {
         }
         $docs = $this->get_documents_for_product($product);
         if (empty($docs)) {
-            echo '<p>' . esc_html__('Geen documenten gekoppeld aan dit product.', 'skwirrel-pim-wp-sync') . '</p>';
+            echo '<p>' . esc_html__('No documents linked to this product.', 'skwirrel-pim-wp-sync') . '</p>';
             return;
         }
         echo '<ul class="skwirrel-admin-document-list" style="margin:0;padding-left:1.2em;">';
@@ -126,7 +126,7 @@ class Skwirrel_WC_Sync_Product_Documents {
             if (!empty($doc['type_label'])) {
                 echo ' <span style="color:#666;">(' . esc_html($doc['type_label']) . ')</span>';
             }
-            echo ' <a href="' . esc_url($edit_url) . '" class="dashicons dashicons-edit" style="font-size:14px;text-decoration:none;" title="' . esc_attr__('Bewerken', 'skwirrel-pim-wp-sync') . '"></a>';
+            echo ' <a href="' . esc_url($edit_url) . '" class="dashicons dashicons-edit" style="font-size:14px;text-decoration:none;" title="' . esc_attr__('Edit', 'skwirrel-pim-wp-sync') . '"></a>';
             echo '</li>';
         }
         echo '</ul>';

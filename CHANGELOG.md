@@ -2,6 +2,13 @@
 
 All notable changes to Skwirrel PIM Sync will be documented in this file.
 
+## [1.3.2]
+
+* i18n: all UI strings switched to English source text
+* Updated translation files (POT + nl_NL, nl_BE, de_DE, fr_FR, fr_BE, en_US, en_GB)
+* Added new translation entries for tabbed UI, custom classes, danger zone and delete protection
+* Recompiled all .mo binary translation files
+
 ## [1.3.1]
 
 * Deep category tree sync: full ancestor chain from nested _parent_category (unlimited depth)
@@ -10,6 +17,14 @@ All notable changes to Skwirrel PIM Sync will be documented in this file.
 * Custom Class text types T and B stored as product meta (_skwirrel_cc_* prefix)
 * Whitelist/blacklist filtering on custom class ID or code
 * New settings: sync_custom_classes, sync_trade_item_custom_classes, custom_class_filter_mode, custom_class_filter_ids
+
+## [1.3.0]
+
+* Admin UI: tabbed layout (Sync Products, Instellingen, Logs)
+* Sync status and history now shown on the default Sync Products tab
+* Sync button moved to page title, visible on all tabs
+* Logs and variation debug instructions on dedicated Logs tab
+* Fixed GitHub release workflow: version is read from plugin file, no more auto-incrementing
 
 ## [1.2.3]
 

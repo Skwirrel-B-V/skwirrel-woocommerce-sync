@@ -3,328 +3,523 @@
 # This file is distributed under the GPL v2 or later.
 msgid ""
 msgstr ""
-"Project-Id-Version: Skwirrel PIM Sync 1.0.0\n"
+"Project-Id-Version: Skwirrel PIM Sync 1.3.1\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-02-19 20:28+0000\n"
-"PO-Revision-Date: 2026-02-19 20:28+0000\n"
+"POT-Creation-Date: 2026-02-25 12:00+0000\n"
+"PO-Revision-Date: 2026-02-25 12:00+0000\n"
 "Last-Translator: Skwirrel Sync <info@skwirrel.eu>\n"
 "Language-Team: Nederlands (België)\n"
 "Language: nl_BE\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"X-Generator: Skwirrel PIM Sync 1.0.0\n"
-"X-Domain: skwirrel-wc-sync\n"
+"X-Generator: Skwirrel PIM Sync 1.3.1\n"
+"X-Domain: skwirrel-pim-wp-sync\n"
 
-msgid "Skwirrel PIM Sync vereist WooCommerce om te functioneren."
+#: skwirrel-pim-wp-sync.php
+msgid "Skwirrel PIM Sync requires WooCommerce to function."
 msgstr "Skwirrel PIM Sync vereist WooCommerce om te functioneren."
 
-msgid "WooCommerce is vereist. <a href=\"%s\">Installeer WooCommerce</a> of <a href=\"%s\">activeer WooCommerce</a>."
-msgstr "WooCommerce is vereist. <a href=\"%s\">Installeer WooCommerce</a> of <a href=\"%s\">activeer WooCommerce</a>."
+#: skwirrel-pim-wp-sync.php
+msgid "Install WooCommerce"
+msgstr "WooCommerce installeren"
 
+#: skwirrel-pim-wp-sync.php
+msgid "WooCommerce is required. <a href=\"%1$s\">Install WooCommerce</a> or <a href=\"%2$s\">activate WooCommerce</a>."
+msgstr "WooCommerce is vereist. <a href=\"%1$s\">Installeer WooCommerce</a> of <a href=\"%2$s\">activeer WooCommerce</a>."
+
+#: includes/class-admin-settings.php
 msgid "Skwirrel Sync"
 msgstr "Skwirrel Sync"
 
-msgid "Geen toegang."
+#: includes/class-admin-settings.php
+msgid "Sync Products"
+msgstr "Producten synchroniseren"
+
+#: includes/class-admin-settings.php
+msgid "Access denied."
 msgstr "Geen toegang."
 
+#: includes/class-admin-settings.php
 msgid "Skwirrel PIM Sync"
 msgstr "Skwirrel PIM Sync"
 
-msgid "JSON-RPC Endpoint URL"
-msgstr "JSON-RPC Endpoint URL"
+#: includes/class-admin-settings.php
+msgid "Settings"
+msgstr "Instellingen"
 
-msgid "Volledige URL naar het Skwirrel JSON-RPC endpoint."
-msgstr "Volledige URL naar het Skwirrel JSON-RPC endpoint."
+#: includes/class-admin-settings.php
+msgid "Logs"
+msgstr "Logs"
 
-msgid "Authenticatie type"
-msgstr "Authenticatie type"
-
-msgid "Bearer token"
-msgstr "Bearer token"
-
-msgid "API static token (X-Skwirrel-Api-Token)"
-msgstr "API static token (X-Skwirrel-Api-Token)"
-
-msgid "Token"
-msgstr "Token"
-
-msgid "Token invoeren…"
-msgstr "Token invoeren…"
-
-msgid "Na opslaan wordt de token niet in platte tekst getoond."
-msgstr "Na opslaan wordt de token niet in platte tekst getoond."
-
-msgid "Timeout (seconden)"
-msgstr "Timeout (seconden)"
-
-msgid "Aantal retries"
-msgstr "Aantal retries"
-
-msgid "Sync interval"
-msgstr "Sync interval"
-
-msgid "Batch size"
-msgstr "Batch size"
-
-msgid "Producten per API-pagina (1–500)."
-msgstr "Producten per API-pagina (1–500)."
-
-msgid "Categorieën syncen"
-msgstr "Categorieën syncen"
-
-msgid "Categorieën uit product_groups aanmaken en koppelen"
-msgstr "Categorieën uit product_groups aanmaken en koppelen"
-
-msgid "Grouped products syncen"
-msgstr "Grouped products syncen"
-
-msgid "Grouped products ophalen via getGroupedProducts (producten binnen groep kunnen variable zijn)"
-msgstr "Grouped products ophalen via getGroupedProducts (producten binnen groep kunnen variable zijn)"
-
-msgid "Collectie ID's (filter)"
-msgstr "Collectie ID's (filter)"
-
-msgid "bijv. 123, 456"
-msgstr "bijv. 123, 456"
-
-msgid "Comma-separated collectie ID's. Alleen producten uit deze collecties worden gesynchroniseerd. Leeg = alles synchroniseren."
-msgstr "Comma-separated collectie ID's. Alleen producten uit deze collecties worden gesynchroniseerd. Leeg = alles synchroniseren."
-
-msgid "Afbeeldingen importeren"
-msgstr "Afbeeldingen importeren"
-
-msgid "Ja, naar media library"
-msgstr "Ja, naar media library"
-
-msgid "Nee, overslaan"
-msgstr "Nee, overslaan"
-
-msgid "Als import naar media library faalt (bijv. door security plugin), kies dan \"Nee\" om afbeeldingen over te slaan."
-msgstr "Als import naar media library faalt (bijv. door security plugin), kies dan \"Nee\" om afbeeldingen over te slaan."
-
-msgid "Contenttaal"
-msgstr "Contenttaal"
-
-msgid "Anders…"
-msgstr "Anders…"
-
-msgid "Taalcode voor alle teksten: afbeelding alt/caption, ETIM-attributen."
-msgstr "Taalcode voor alle teksten: afbeelding alt/caption, ETIM-attributen."
-
-msgid "API-talen (include_languages)"
-msgstr "API-talen (include_languages)"
-
-msgid "Extra taalcodes (comma-separated):"
-msgstr "Extra taalcodes (comma-separated):"
-
-msgid "Selecteer de talen die de API moet meesturen voor product translations en ETIM."
-msgstr "Selecteer de talen die de API moet meesturen voor product translations en ETIM."
-
-msgid "Uitgebreide logging"
-msgstr "Uitgebreide logging"
-
-msgid "Log per product: bronnen, ETIM, attributen (zie WooCommerce → Status → Logs)"
-msgstr "Log per product: bronnen, ETIM, attributen (zie WooCommerce → Status → Logs)"
-
-msgid "SKU veld"
-msgstr "SKU veld"
-
-msgid "internal_product_code"
-msgstr "internal_product_code"
-
-msgid "manufacturer_product_code"
-msgstr "manufacturer_product_code"
-
-msgid "Instellingen opslaan"
-msgstr "Instellingen opslaan"
-
-msgid "Acties"
-msgstr "Acties"
-
-msgid "Test verbinding"
-msgstr "Test verbinding"
-
-msgid "Sync nu"
-msgstr "Sync nu"
-
-msgid "Bekijk logs"
-msgstr "Bekijk logs"
-
-msgid "Variatie-attributen debuggen"
-msgstr "Variatie-attributen debuggen"
-
-msgid "Als variaties \"Any Colour\" / \"Any Number of cups\" tonen in plaats van echte waarden:"
-msgstr "Als variaties \"Any Colour\" / \"Any Number of cups\" tonen in plaats van echte waarden:"
-
-msgid "Voeg in wp-config.php toe: define('SKWIRREL_WC_SYNC_DEBUG_ETIM', true);"
-msgstr "Voeg in wp-config.php toe: define('SKWIRREL_WC_SYNC_DEBUG_ETIM', true);"
-
-msgid "Voer \"Sync nu\" uit."
-msgstr "Voer \"Sync nu\" uit."
-
-msgid "Bekijk wp-content/uploads/skwirrel-variation-debug.log"
-msgstr "Bekijk wp-content/uploads/skwirrel-variation-debug.log"
-
-msgid "Controleer: etim_values_found leeg? → API-talen moet overeenkomen met getProducts (bijv. en, en-GB)."
-msgstr "Controleer: etim_values_found leeg? → API-talen moet overeenkomen met getProducts (bijv. en, en-GB)."
-
-msgid "ATTR VERIFY FAIL in de log? → meta wordt niet correct weggeschreven; controleer wp_postmeta voor attribute_pa_color/attribute_pa_cups."
-msgstr "ATTR VERIFY FAIL in de log? → meta wordt niet correct weggeschreven; controleer wp_postmeta voor attribute_pa_color/attribute_pa_cups."
-
+#: includes/class-admin-settings.php
 msgid "Sync status"
 msgstr "Sync status"
 
-msgid "Laatste sync geslaagd"
+#: includes/class-admin-settings.php
+msgid "Last sync successful"
 msgstr "Laatste sync geslaagd"
 
-msgid "Laatste sync mislukt"
+#: includes/class-admin-settings.php
+msgid "Last sync failed"
 msgstr "Laatste sync mislukt"
 
-msgid "Onbekend"
+#: includes/class-admin-settings.php
+msgid "Unknown"
 msgstr "Onbekend"
 
-msgid "Sync resultaten"
+#: includes/class-admin-settings.php
+msgid "Sync results"
 msgstr "Sync resultaten"
 
-msgid "Categorie"
+#: includes/class-admin-settings.php
+msgid "Category"
 msgstr "Categorie"
 
-msgid "Aantal"
+#: includes/class-admin-settings.php
+msgid "Count"
 msgstr "Aantal"
 
-msgid "Aangemaakt"
+#: includes/class-admin-settings.php
+msgid "Created"
 msgstr "Aangemaakt"
 
-msgid "Bijgewerkt"
+#: includes/class-admin-settings.php
+msgid "Updated"
 msgstr "Bijgewerkt"
 
-msgid "Mislukt"
+#: includes/class-admin-settings.php
+msgid "Failed"
 msgstr "Mislukt"
 
-msgid "↳ Met kenmerken"
+#: includes/class-admin-settings.php
+msgid "Deleted (trash)"
+msgstr "Verwijderd (prullenbak)"
+
+#: includes/class-admin-settings.php
+msgid "↳ Categories cleaned up"
+msgstr "↳ Categorieën opgeschoond"
+
+#: includes/class-admin-settings.php
+msgid "↳ With attributes"
 msgstr "↳ Met kenmerken"
 
-msgid "↳ Zonder kenmerken"
+#: includes/class-admin-settings.php
+msgid "↳ Without attributes"
 msgstr "↳ Zonder kenmerken"
 
-msgid "Totaal verwerkt"
+#: includes/class-admin-settings.php
+msgid "Total processed"
 msgstr "Totaal verwerkt"
 
-msgid "Foutmelding:"
+#: includes/class-admin-settings.php
+msgid "Error message:"
 msgstr "Foutmelding:"
 
-msgid "Nog geen sync uitgevoerd. Klik op \"Nu synchroniseren\" om te beginnen."
-msgstr "Nog geen sync uitgevoerd. Klik op \"Nu synchroniseren\" om te beginnen."
+#: includes/class-admin-settings.php
+msgid "No sync has been run yet. Click \"Sync Products\" to get started."
+msgstr "Nog geen sync uitgevoerd. Klik op \"Producten synchroniseren\" om te beginnen."
 
-msgid "Sync geschiedenis"
+#: includes/class-admin-settings.php
+msgid "Sync history"
 msgstr "Sync geschiedenis"
 
-msgid "Datum & Tijd"
+#: includes/class-admin-settings.php
+msgid "Date & Time"
 msgstr "Datum & Tijd"
 
+#: includes/class-admin-settings.php
 msgid "Status"
 msgstr "Status"
 
-msgid "Met kenm."
-msgstr "Met kenm."
-
-msgid "Zonder kenm."
-msgstr "Zonder kenm."
-
-msgid "Totaal"
-msgstr "Totaal"
-
-msgid "Geslaagd"
+#: includes/class-admin-settings.php
+msgid "Successful"
 msgstr "Geslaagd"
 
-msgid "Verbinding test geslaagd."
+#: includes/class-admin-settings.php
+msgid "Deleted"
+msgstr "Verwijderd"
+
+#: includes/class-admin-settings.php
+msgid "With attr."
+msgstr "Met kenm."
+
+#: includes/class-admin-settings.php
+msgid "Without attr."
+msgstr "Zonder kenm."
+
+#: includes/class-admin-settings.php
+msgid "Total"
+msgstr "Totaal"
+
+#: includes/class-admin-settings.php
+msgid "JSON-RPC Endpoint URL"
+msgstr "JSON-RPC Endpoint URL"
+
+#: includes/class-admin-settings.php
+msgid "Full URL to the Skwirrel JSON-RPC endpoint."
+msgstr "Volledige URL naar het Skwirrel JSON-RPC endpoint."
+
+#: includes/class-admin-settings.php
+msgid "Authentication type"
+msgstr "Authenticatie type"
+
+#: includes/class-admin-settings.php
+msgid "Bearer token"
+msgstr "Bearer token"
+
+#: includes/class-admin-settings.php
+msgid "API static token (X-Skwirrel-Api-Token)"
+msgstr "API static token (X-Skwirrel-Api-Token)"
+
+#: includes/class-admin-settings.php
+msgid "Token"
+msgstr "Token"
+
+#: includes/class-admin-settings.php
+msgid "Enter token…"
+msgstr "Token invoeren…"
+
+#: includes/class-admin-settings.php
+msgid "After saving, the token will not be shown in plain text."
+msgstr "Na opslaan wordt de token niet in platte tekst getoond."
+
+#: includes/class-admin-settings.php
+msgid "Timeout (seconds)"
+msgstr "Timeout (seconden)"
+
+#: includes/class-admin-settings.php
+msgid "Number of retries"
+msgstr "Aantal retries"
+
+#: includes/class-admin-settings.php
+msgid "Sync interval"
+msgstr "Sync interval"
+
+#: includes/class-admin-settings.php
+msgid "Batch size"
+msgstr "Batch size"
+
+#: includes/class-admin-settings.php
+msgid "Products per API page (1–500)."
+msgstr "Producten per API-pagina (1–500)."
+
+#: includes/class-admin-settings.php
+msgid "Sync categories"
+msgstr "Categorieën synchroniseren"
+
+#: includes/class-admin-settings.php
+msgid "Create and assign categories from product_groups"
+msgstr "Categorieën uit product_groups aanmaken en koppelen"
+
+#: includes/class-admin-settings.php
+msgid "Sync grouped products"
+msgstr "Grouped products synchroniseren"
+
+#: includes/class-admin-settings.php
+msgid "Fetch grouped products via getGroupedProducts (products within a group can be variable)"
+msgstr "Grouped products ophalen via getGroupedProducts (producten binnen groep kunnen variable zijn)"
+
+#: includes/class-admin-settings.php
+msgid "Sync custom classes"
+msgstr "Custom classes synchroniseren"
+
+#: includes/class-admin-settings.php
+msgid "Fetch custom class attributes and save as product attributes"
+msgstr "Custom class kenmerken ophalen en opslaan als productkenmerken"
+
+#: includes/class-admin-settings.php
+msgid "Also include trade item custom classes"
+msgstr "Ook trade item custom classes meenemen"
+
+#: includes/class-admin-settings.php
+msgid "Custom class filter"
+msgstr "Custom class filter"
+
+#: includes/class-admin-settings.php
+msgid "No filter (all classes)"
+msgstr "Geen filter (alle klassen)"
+
+#: includes/class-admin-settings.php
+msgid "Whitelist (only these classes)"
+msgstr "Whitelist (alleen deze klassen)"
+
+#: includes/class-admin-settings.php
+msgid "Blacklist (all except these classes)"
+msgstr "Blacklist (alles behalve deze klassen)"
+
+#: includes/class-admin-settings.php
+msgid "e.g. 12, 45, BUIS"
+msgstr "bijv. 12, 45, BUIS"
+
+#: includes/class-admin-settings.php
+msgid "Comma-separated class IDs or codes. Numeric values are used as ID, others as class code."
+msgstr "Kommagescheiden klasse ID's of codes. Numerieke waarden worden als ID gebruikt, overige als klassencode."
+
+#: includes/class-admin-settings.php
+msgid "Collection IDs (filter)"
+msgstr "Collectie ID's (filter)"
+
+#: includes/class-admin-settings.php
+msgid "e.g. 123, 456"
+msgstr "bijv. 123, 456"
+
+#: includes/class-admin-settings.php
+msgid "Comma-separated collection IDs. Only products from these collections will be synced. Empty = sync all."
+msgstr "Kommagescheiden collectie ID's. Alleen producten uit deze collecties worden gesynchroniseerd. Leeg = alles synchroniseren."
+
+#: includes/class-admin-settings.php
+msgid "Import images"
+msgstr "Afbeeldingen importeren"
+
+#: includes/class-admin-settings.php
+msgid "Yes, to media library"
+msgstr "Ja, naar media library"
+
+#: includes/class-admin-settings.php
+msgid "No, skip"
+msgstr "Nee, overslaan"
+
+#: includes/class-admin-settings.php
+msgid "If media library import fails (e.g. due to security plugin), choose \"No\" to skip images."
+msgstr "Als import naar media library faalt (bijv. door security plugin), kies dan \"Nee\" om afbeeldingen over te slaan."
+
+#: includes/class-admin-settings.php
+msgid "Content language"
+msgstr "Contenttaal"
+
+#: includes/class-admin-settings.php
+msgid "Other…"
+msgstr "Anders…"
+
+#: includes/class-admin-settings.php
+msgid "Language code for all text: image alt/caption, ETIM attributes."
+msgstr "Taalcode voor alle teksten: afbeelding alt/caption, ETIM-attributen."
+
+#: includes/class-admin-settings.php
+msgid "API languages (include_languages)"
+msgstr "API-talen (include_languages)"
+
+#: includes/class-admin-settings.php
+msgid "Additional language codes (comma-separated):"
+msgstr "Extra taalcodes (kommagescheiden):"
+
+#: includes/class-admin-settings.php
+msgid "Select the languages the API should include for product translations and ETIM."
+msgstr "Selecteer de talen die de API moet meesturen voor producttranslations en ETIM."
+
+#: includes/class-admin-settings.php
+msgid "Verbose logging"
+msgstr "Uitgebreide logging"
+
+#: includes/class-admin-settings.php
+msgid "Log per product: sources, ETIM, attributes (see WooCommerce → Status → Logs)"
+msgstr "Log per product: bronnen, ETIM, attributen (zie WooCommerce → Status → Logs)"
+
+#: includes/class-admin-settings.php
+msgid "Clean up deleted products"
+msgstr "Verwijderde producten opruimen"
+
+#: includes/class-admin-settings.php
+msgid "Automatically trash products and categories no longer in Skwirrel during full sync"
+msgstr "Automatisch producten en categorieën die niet meer in Skwirrel staan verwijderen tijdens volledige sync"
+
+#: includes/class-admin-settings.php
+msgid "Only active during full sync (manual sync or after deletion in WooCommerce). Not active during delta sync or when collection filter is set."
+msgstr "Alleen actief tijdens volledige sync (handmatige sync of na verwijdering in WooCommerce). Niet actief tijdens delta sync of wanneer collectiefilter is ingesteld."
+
+#: includes/class-admin-settings.php
+msgid "Show delete warning"
+msgstr "Verwijderwaarschuwing tonen"
+
+#: includes/class-admin-settings.php
+msgid "Show warning when deleting Skwirrel products and categories in WooCommerce"
+msgstr "Waarschuwing tonen bij verwijderen van Skwirrel producten en categorieën in WooCommerce"
+
+#: includes/class-admin-settings.php
+msgid "Skwirrel is the source of truth: deleted products will be recreated during the next sync. This warning reminds users of this."
+msgstr "Skwirrel is de bron van waarheid: verwijderde producten worden opnieuw aangemaakt bij de volgende sync. Deze waarschuwing herinnert gebruikers hieraan."
+
+#: includes/class-admin-settings.php
+msgid "SKU field"
+msgstr "SKU veld"
+
+#: includes/class-admin-settings.php
+msgid "internal_product_code"
+msgstr "internal_product_code"
+
+#: includes/class-admin-settings.php
+msgid "manufacturer_product_code"
+msgstr "manufacturer_product_code"
+
+#: includes/class-admin-settings.php
+msgid "Save settings"
+msgstr "Instellingen opslaan"
+
+#: includes/class-admin-settings.php
+msgid "Test connection"
+msgstr "Test verbinding"
+
+#: includes/class-admin-settings.php
+msgid "Danger zone"
+msgstr "Gevarenzone"
+
+#: includes/class-admin-settings.php
+msgid "Delete all products created or synced by Skwirrel. This action cannot be undone if you empty the trash."
+msgstr "Verwijder alle producten die door Skwirrel zijn aangemaakt of gesynchroniseerd. Deze actie kan niet ongedaan worden gemaakt als u de prullenbak leegt."
+
+#: includes/class-admin-settings.php
+msgid "Also empty the trash (permanently delete)"
+msgstr "Ook de prullenbak legen (permanent verwijderen)"
+
+#: includes/class-admin-settings.php
+msgid "Delete all Skwirrel products"
+msgstr "Alle Skwirrel producten verwijderen"
+
+#: includes/class-admin-settings.php
+msgid "WARNING: All Skwirrel products will be PERMANENTLY deleted. This cannot be undone!\n\nAre you sure?"
+msgstr "WAARSCHUWING: Alle Skwirrel producten worden PERMANENT verwijderd. Dit kan niet ongedaan worden gemaakt!\n\nWeet u het zeker?"
+
+#: includes/class-admin-settings.php
+msgid "All Skwirrel products will be moved to the trash.\n\nAre you sure?"
+msgstr "Alle Skwirrel producten worden naar de prullenbak verplaatst.\n\nWeet u het zeker?"
+
+#: includes/class-admin-settings.php
+msgid "View logs"
+msgstr "Bekijk logs"
+
+#: includes/class-admin-settings.php
+msgid "No log file available."
+msgstr "Geen logbestand beschikbaar."
+
+#: includes/class-admin-settings.php
+msgid "Debug variation attributes"
+msgstr "Variatie-attributen debuggen"
+
+#: includes/class-admin-settings.php
+msgid "If variations show \"Any Colour\" / \"Any Number of cups\" instead of real values:"
+msgstr "Als variaties \"Any Colour\" / \"Any Number of cups\" tonen in plaats van echte waarden:"
+
+#: includes/class-admin-settings.php
+msgid "Add to wp-config.php: define('SKWIRREL_WC_SYNC_DEBUG_ETIM', true);"
+msgstr "Voeg in wp-config.php toe: define('SKWIRREL_WC_SYNC_DEBUG_ETIM', true);"
+
+#: includes/class-admin-settings.php
+msgid "Run \"Sync Products\"."
+msgstr "Voer \"Producten synchroniseren\" uit."
+
+#: includes/class-admin-settings.php
+msgid "Check wp-content/uploads/skwirrel-variation-debug.log"
+msgstr "Bekijk wp-content/uploads/skwirrel-variation-debug.log"
+
+#: includes/class-admin-settings.php
+msgid "Check: etim_values_found empty? → API languages must match getProducts (e.g. en, en-GB)."
+msgstr "Controleer: etim_values_found leeg? → API-talen moet overeenkomen met getProducts (bijv. en, en-GB)."
+
+#: includes/class-admin-settings.php
+msgid "ATTR VERIFY FAIL in the log? → meta is not being written correctly; check wp_postmeta for attribute_pa_color/attribute_pa_cups."
+msgstr "ATTR VERIFY FAIL in de log? → meta wordt niet correct weggeschreven; controleer wp_postmeta voor attribute_pa_color/attribute_pa_cups."
+
+#: includes/class-admin-settings.php
+msgid "Connection test successful."
 msgstr "Verbinding test geslaagd."
 
-msgid "Verbinding mislukt."
+#: includes/class-admin-settings.php
+msgid "Connection failed."
 msgstr "Verbinding mislukt."
 
-msgid "Sync is gestart op de achtergrond. De resultaten verschijnen hier zodra de sync is voltooid. Vernieuw de pagina om de status te controleren."
+#: includes/class-admin-settings.php
+msgid "Sync started in the background. Results will appear here once the sync is completed. Refresh the page to check the status."
 msgstr "Sync is gestart op de achtergrond. De resultaten verschijnen hier zodra de sync is voltooid. Vernieuw de pagina om de status te controleren."
 
-msgid "Sync voltooid. Aangemaakt: %d, Bijgewerkt: %d, Mislukt: %d"
-msgstr "Sync voltooid. Aangemaakt: %d, Bijgewerkt: %d, Mislukt: %d"
+#: includes/class-admin-settings.php
+msgid "Purge started in the background. All Skwirrel products, imported media, categories and attributes will be deleted. Refresh the page to check the status."
+msgstr "Opruimactie is gestart op de achtergrond. Alle Skwirrel producten, geïmporteerde media, categorieën en attributen worden verwijderd. Vernieuw de pagina om de status te controleren."
 
-msgid "(met kenmerken: %d, zonder: %d)"
-msgstr "(met kenmerken: %d, zonder: %d)"
+#: includes/class-admin-settings.php
+msgid "Sync completed. Created: %1$d, Updated: %2$d, Failed: %3$d"
+msgstr "Sync voltooid. Aangemaakt: %1$d, bijgewerkt: %2$d, mislukt: %3$d"
 
-msgid "Sync voltooid. Controleer de logs voor details."
+#: includes/class-admin-settings.php
+msgid "(with attributes: %1$d, without: %2$d)"
+msgstr "(met kenmerken: %1$d, zonder: %2$d)"
+
+#: includes/class-admin-settings.php
+msgid "Sync completed. Check the logs for details."
 msgstr "Sync voltooid. Controleer de logs voor details."
 
-msgid "Product %s"
-msgstr "Product %s"
-
-msgid "Variant"
-msgstr "Variant"
-
-msgid "Colour"
-msgstr "Colour"
-
-msgid "Number of cups"
-msgstr "Number of cups"
-
-msgid "Search %s"
-msgstr "Search %s"
-
-msgid "All %s"
-msgstr "All %s"
-
-msgid "Edit %s"
-msgstr "Edit %s"
-
-msgid "Update %s"
-msgstr "Update %s"
-
-msgid "Add new %s"
-msgstr "Add new %s"
-
-msgid "New %s"
-msgstr "New %s"
-
-msgid "Handleiding"
+#: includes/class-product-mapper.php
+msgid "Manual"
 msgstr "Handleiding"
 
+#: includes/class-product-mapper.php
 msgid "Datasheet"
 msgstr "Datasheet"
 
-msgid "Certificaat"
+#: includes/class-product-mapper.php
+msgid "Certificate"
 msgstr "Certificaat"
 
-msgid "Garantie"
+#: includes/class-product-mapper.php
+msgid "Warranty"
 msgstr "Garantie"
 
-msgid "Overig document"
+#: includes/class-product-mapper.php
+msgid "Other document"
 msgstr "Overig document"
 
-msgid "Documenten"
+#: includes/class-product-documents.php
+msgid "Documents"
 msgstr "Documenten"
 
-msgid "Skwirrel documenten"
+#: includes/class-product-documents.php
+msgid "Skwirrel documents"
 msgstr "Skwirrel documenten"
 
-msgid "Geen documenten gekoppeld aan dit product."
+#: includes/class-product-documents.php
+msgid "No documents linked to this product."
 msgstr "Geen documenten gekoppeld aan dit product."
 
-msgid "Bewerken"
+#: includes/class-product-documents.php
+msgid "Edit"
 msgstr "Bewerken"
 
-msgid "Twee keer per dag"
-msgstr "Twee keer per dag"
-
-msgid "Uitgeschakeld"
+#: includes/class-action-scheduler.php
+msgid "Disabled"
 msgstr "Uitgeschakeld"
 
-msgid "Elk uur"
+#: includes/class-action-scheduler.php
+msgid "Hourly"
 msgstr "Elk uur"
 
-msgid "Dagelijks"
+#: includes/class-action-scheduler.php
+msgid "Twice daily"
+msgstr "Twee keer per dag"
+
+#: includes/class-action-scheduler.php
+msgid "Daily"
 msgstr "Dagelijks"
 
-msgid "Wekelijks"
+#: includes/class-action-scheduler.php
+msgid "Weekly"
 msgstr "Wekelijks"
 
+#: includes/class-delete-protection.php
+msgid "This product is managed by Skwirrel. Changes to product data should be made in Skwirrel."
+msgstr "Dit product wordt beheerd door Skwirrel. Wijzigingen aan productgegevens dienen in Skwirrel te worden gemaakt."
+
+#: includes/class-delete-protection.php
+msgid "If you delete or trash this product, it will be automatically recreated during the next sync."
+msgstr "Als u dit product verwijdert, wordt het automatisch opnieuw aangemaakt bij de volgende sync."
+
+#: includes/class-delete-protection.php
+msgid "Last synced: %s"
+msgstr "Laatst gesynchroniseerd: %s"
+
+#: includes/class-delete-protection.php
+msgid "This product is managed by Skwirrel and will be recreated during the next sync.\n\nAre you sure you want to trash this product?"
+msgstr "Dit product wordt beheerd door Skwirrel en wordt opnieuw aangemaakt bij de volgende sync.\n\nWeet u zeker dat u dit product wilt verwijderen?"
+
+#: includes/class-delete-protection.php
+msgid "This category was created by Skwirrel Sync and will be recreated during the next sync.\n\nAre you sure you want to delete this category?"
+msgstr "Deze categorie is aangemaakt door Skwirrel Sync en wordt opnieuw aangemaakt bij de volgende sync.\n\nWeet u zeker dat u deze categorie wilt verwijderen?"

@@ -91,7 +91,7 @@ class Skwirrel_WC_Sync_Action_Scheduler {
     public function add_cron_schedules(array $schedules): array {
         $schedules['skwirrel_twice_daily'] = [
             'interval' => 12 * HOUR_IN_SECONDS,
-            'display' => __('Twee keer per dag', 'skwirrel-pim-wp-sync'),
+            'display' => __('Twice daily', 'skwirrel-pim-wp-sync'),
         ];
         return $schedules;
     }
@@ -109,11 +109,11 @@ class Skwirrel_WC_Sync_Action_Scheduler {
 
     public static function get_interval_options(): array {
         return [
-            '' => __('Uitgeschakeld', 'skwirrel-pim-wp-sync'),
-            'hourly' => __('Elk uur', 'skwirrel-pim-wp-sync'),
-            'twicedaily' => __('Twee keer per dag', 'skwirrel-pim-wp-sync'),
-            'daily' => __('Dagelijks', 'skwirrel-pim-wp-sync'),
-            'weekly' => __('Wekelijks', 'skwirrel-pim-wp-sync'),
+            '' => __('Disabled', 'skwirrel-pim-wp-sync'),
+            'hourly' => __('Hourly', 'skwirrel-pim-wp-sync'),
+            'twicedaily' => __('Twice daily', 'skwirrel-pim-wp-sync'),
+            'daily' => __('Daily', 'skwirrel-pim-wp-sync'),
+            'weekly' => __('Weekly', 'skwirrel-pim-wp-sync'),
         ];
     }
 }

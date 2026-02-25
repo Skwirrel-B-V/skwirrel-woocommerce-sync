@@ -78,7 +78,7 @@ class Skwirrel_WC_Sync_Admin_Settings {
 
     public function handle_menu_sync_redirect(): void {
         if (!current_user_can('manage_woocommerce')) {
-            wp_die(esc_html__('Geen toegang.', 'skwirrel-pim-wp-sync'));
+            wp_die(esc_html__('Access denied.', 'skwirrel-pim-wp-sync'));
         }
 
         $token = bin2hex(random_bytes(16));
@@ -204,7 +204,7 @@ class Skwirrel_WC_Sync_Admin_Settings {
 
     public function handle_test_connection(): void {
         if (!current_user_can('manage_woocommerce')) {
-            wp_die(esc_html__('Geen toegang.', 'skwirrel-pim-wp-sync'));
+            wp_die(esc_html__('Access denied.', 'skwirrel-pim-wp-sync'));
         }
         check_admin_referer('skwirrel_wc_sync_test', '_wpnonce');
 
@@ -232,7 +232,7 @@ class Skwirrel_WC_Sync_Admin_Settings {
 
     public function handle_sync_now(): void {
         if (!current_user_can('manage_woocommerce')) {
-            wp_die(esc_html__('Geen toegang.', 'skwirrel-pim-wp-sync'));
+            wp_die(esc_html__('Access denied.', 'skwirrel-pim-wp-sync'));
         }
         check_admin_referer('skwirrel_wc_sync_run', '_wpnonce');
 
@@ -285,7 +285,7 @@ class Skwirrel_WC_Sync_Admin_Settings {
 
     public function handle_purge_now(): void {
         if (!current_user_can('manage_woocommerce')) {
-            wp_die(esc_html__('Geen toegang.', 'skwirrel-pim-wp-sync'));
+            wp_die(esc_html__('Access denied.', 'skwirrel-pim-wp-sync'));
         }
         check_admin_referer('skwirrel_wc_sync_purge', '_wpnonce');
 
@@ -507,7 +507,7 @@ class Skwirrel_WC_Sync_Admin_Settings {
 
     public function render_page(): void {
         if (!current_user_can('manage_woocommerce')) {
-            wp_die(esc_html__('Geen toegang.', 'skwirrel-pim-wp-sync'));
+            wp_die(esc_html__('Access denied.', 'skwirrel-pim-wp-sync'));
         }
 
         $this->maybe_show_notices();
@@ -529,7 +529,7 @@ class Skwirrel_WC_Sync_Admin_Settings {
 
             <nav class="nav-tab-wrapper">
                 <a href="<?php echo esc_url(add_query_arg('tab', 'sync', $base_url)); ?>" class="nav-tab <?php echo $active_tab === 'sync' ? 'nav-tab-active' : ''; ?>"><?php esc_html_e('Sync Products', 'skwirrel-pim-wp-sync'); ?></a>
-                <a href="<?php echo esc_url(add_query_arg('tab', 'settings', $base_url)); ?>" class="nav-tab <?php echo $active_tab === 'settings' ? 'nav-tab-active' : ''; ?>"><?php esc_html_e('Instellingen', 'skwirrel-pim-wp-sync'); ?></a>
+                <a href="<?php echo esc_url(add_query_arg('tab', 'settings', $base_url)); ?>" class="nav-tab <?php echo $active_tab === 'settings' ? 'nav-tab-active' : ''; ?>"><?php esc_html_e('Settings', 'skwirrel-pim-wp-sync'); ?></a>
                 <a href="<?php echo esc_url(add_query_arg('tab', 'logs', $base_url)); ?>" class="nav-tab <?php echo $active_tab === 'logs' ? 'nav-tab-active' : ''; ?>"><?php esc_html_e('Logs', 'skwirrel-pim-wp-sync'); ?></a>
             </nav>
 
@@ -564,36 +564,36 @@ class Skwirrel_WC_Sync_Admin_Settings {
             <div style="background: <?php echo $last_result['success'] ? '#d4edda' : '#f8d7da'; ?>; border: 1px solid <?php echo $last_result['success'] ? '#c3e6cb' : '#f5c6cb'; ?>; padding: 15px; border-radius: 4px; margin-bottom: 20px;">
                 <h3 style="margin-top: 0; color: <?php echo $last_result['success'] ? '#155724' : '#721c24'; ?>;">
                     <?php if ($last_result['success']) : ?>
-                        ✓ <?php esc_html_e('Laatste sync geslaagd', 'skwirrel-pim-wp-sync'); ?>
+                        ✓ <?php esc_html_e('Last sync successful', 'skwirrel-pim-wp-sync'); ?>
                     <?php else : ?>
-                        ✗ <?php esc_html_e('Laatste sync mislukt', 'skwirrel-pim-wp-sync'); ?>
+                        ✗ <?php esc_html_e('Last sync failed', 'skwirrel-pim-wp-sync'); ?>
                     <?php endif; ?>
                 </h3>
                 <p style="margin: 0; color: <?php echo $last_result['success'] ? '#155724' : '#721c24'; ?>;">
-                    <?php echo $last_sync ? esc_html($this->format_datetime($last_sync)) : esc_html__('Onbekend', 'skwirrel-pim-wp-sync'); ?>
+                    <?php echo $last_sync ? esc_html($this->format_datetime($last_sync)) : esc_html__('Unknown', 'skwirrel-pim-wp-sync'); ?>
                 </p>
             </div>
 
-            <h3><?php esc_html_e('Sync resultaten', 'skwirrel-pim-wp-sync'); ?></h3>
+            <h3><?php esc_html_e('Sync results', 'skwirrel-pim-wp-sync'); ?></h3>
             <table class="widefat" style="margin-bottom: 20px;">
                 <thead>
                     <tr>
-                        <th><?php esc_html_e('Categorie', 'skwirrel-pim-wp-sync'); ?></th>
-                        <th style="text-align: right;"><?php esc_html_e('Aantal', 'skwirrel-pim-wp-sync'); ?></th>
+                        <th><?php esc_html_e('Category', 'skwirrel-pim-wp-sync'); ?></th>
+                        <th style="text-align: right;"><?php esc_html_e('Count', 'skwirrel-pim-wp-sync'); ?></th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
-                        <td><strong><?php esc_html_e('Aangemaakt', 'skwirrel-pim-wp-sync'); ?></strong></td>
+                        <td><strong><?php esc_html_e('Created', 'skwirrel-pim-wp-sync'); ?></strong></td>
                         <td style="text-align: right;"><span style="color: #00a32a; font-weight: bold; font-size: 16px;"><?php echo (int) ($last_result['created'] ?? 0); ?></span></td>
                     </tr>
                     <tr style="background-color: #f9f9f9;">
-                        <td><strong><?php esc_html_e('Bijgewerkt', 'skwirrel-pim-wp-sync'); ?></strong></td>
+                        <td><strong><?php esc_html_e('Updated', 'skwirrel-pim-wp-sync'); ?></strong></td>
                         <td style="text-align: right;"><span style="color: #007cba; font-weight: bold; font-size: 16px;"><?php echo (int) ($last_result['updated'] ?? 0); ?></span></td>
                     </tr>
                     <?php $failed_count = (int) ($last_result['failed'] ?? 0); ?>
                     <tr style="<?php echo $failed_count > 0 ? 'background-color: #f8d7da;' : ''; ?>">
-                        <td><strong><?php esc_html_e('Mislukt', 'skwirrel-pim-wp-sync'); ?></strong></td>
+                        <td><strong><?php esc_html_e('Failed', 'skwirrel-pim-wp-sync'); ?></strong></td>
                         <td style="text-align: right;"><span style="color: #d63638; font-weight: bold; font-size: 16px;"><?php echo esc_html((string) $failed_count); ?></span></td>
                     </tr>
                     <?php
@@ -602,12 +602,12 @@ class Skwirrel_WC_Sync_Admin_Settings {
                     if ($trashed_count > 0 || $cats_removed > 0) :
                     ?>
                     <tr style="background-color: #fff3cd;">
-                        <td><strong><?php esc_html_e('Verwijderd (prullenbak)', 'skwirrel-pim-wp-sync'); ?></strong></td>
+                        <td><strong><?php esc_html_e('Deleted (trash)', 'skwirrel-pim-wp-sync'); ?></strong></td>
                         <td style="text-align: right;"><span style="color: #856404; font-weight: bold; font-size: 16px;"><?php echo esc_html((string)$trashed_count); ?></span></td>
                     </tr>
                     <?php if ($cats_removed > 0) : ?>
                     <tr style="background-color: #fff3cd;">
-                        <td style="padding-left: 20px;"><?php esc_html_e('↳ Categorieën opgeruimd', 'skwirrel-pim-wp-sync'); ?></td>
+                        <td style="padding-left: 20px;"><?php esc_html_e('↳ Categories cleaned up', 'skwirrel-pim-wp-sync'); ?></td>
                         <td style="text-align: right;"><span style="color: #856404;"><?php echo esc_html((string)$cats_removed); ?></span></td>
                     </tr>
                     <?php endif; ?>
@@ -618,16 +618,16 @@ class Skwirrel_WC_Sync_Admin_Settings {
                     if ($with_a + $without_a > 0) :
                     ?>
                     <tr style="background-color: #f9f9f9;">
-                        <td style="padding-left: 20px;"><?php esc_html_e('↳ Met kenmerken', 'skwirrel-pim-wp-sync'); ?></td>
+                        <td style="padding-left: 20px;"><?php esc_html_e('↳ With attributes', 'skwirrel-pim-wp-sync'); ?></td>
                         <td style="text-align: right;"><?php echo esc_html((string)$with_a); ?></td>
                     </tr>
                     <tr>
-                        <td style="padding-left: 20px;"><?php esc_html_e('↳ Zonder kenmerken', 'skwirrel-pim-wp-sync'); ?></td>
+                        <td style="padding-left: 20px;"><?php esc_html_e('↳ Without attributes', 'skwirrel-pim-wp-sync'); ?></td>
                         <td style="text-align: right;"><?php echo esc_html((string)$without_a); ?></td>
                     </tr>
                     <?php endif; ?>
                     <tr style="background-color: #e8f5e9; border-top: 2px solid #4caf50;">
-                        <td><strong><?php esc_html_e('Totaal verwerkt', 'skwirrel-pim-wp-sync'); ?></strong></td>
+                        <td><strong><?php esc_html_e('Total processed', 'skwirrel-pim-wp-sync'); ?></strong></td>
                         <td style="text-align: right;"><strong style="font-size: 16px;"><?php echo (int) ($last_result['created'] ?? 0) + (int) ($last_result['updated'] ?? 0) + (int) ($last_result['failed'] ?? 0); ?></strong></td>
                     </tr>
                 </tbody>
@@ -635,30 +635,30 @@ class Skwirrel_WC_Sync_Admin_Settings {
 
             <?php if (!$last_result['success'] && !empty($last_result['error'])) : ?>
                 <div style="background: #fff3cd; border: 1px solid #ffc107; padding: 10px; border-radius: 4px; margin-top: 15px;">
-                    <strong><?php esc_html_e('Foutmelding:', 'skwirrel-pim-wp-sync'); ?></strong><br>
+                    <strong><?php esc_html_e('Error message:', 'skwirrel-pim-wp-sync'); ?></strong><br>
                     <?php echo esc_html($last_result['error']); ?>
                 </div>
             <?php endif; ?>
         <?php else : ?>
             <div style="background: #f0f0f0; border: 1px solid #ccc; padding: 15px; border-radius: 4px; text-align: center;">
-                <p style="margin: 0;"><?php esc_html_e('Nog geen sync uitgevoerd. Klik op "Nu synchroniseren" om te beginnen.', 'skwirrel-pim-wp-sync'); ?></p>
+                <p style="margin: 0;"><?php esc_html_e('No sync has been run yet. Click "Sync Products" to get started.', 'skwirrel-pim-wp-sync'); ?></p>
             </div>
         <?php endif; ?>
 
         <?php if (!empty($sync_history)) : ?>
-            <h2 style="margin-top: 30px;"><?php esc_html_e('Sync geschiedenis', 'skwirrel-pim-wp-sync'); ?></h2>
+            <h2 style="margin-top: 30px;"><?php esc_html_e('Sync history', 'skwirrel-pim-wp-sync'); ?></h2>
             <table class="widefat striped" style="margin-top: 10px;">
                 <thead>
                     <tr>
-                        <th><?php esc_html_e('Datum & Tijd', 'skwirrel-pim-wp-sync'); ?></th>
+                        <th><?php esc_html_e('Date & Time', 'skwirrel-pim-wp-sync'); ?></th>
                         <th><?php esc_html_e('Status', 'skwirrel-pim-wp-sync'); ?></th>
-                        <th style="text-align: right;"><?php esc_html_e('Aangemaakt', 'skwirrel-pim-wp-sync'); ?></th>
-                        <th style="text-align: right;"><?php esc_html_e('Bijgewerkt', 'skwirrel-pim-wp-sync'); ?></th>
-                        <th style="text-align: right;"><?php esc_html_e('Mislukt', 'skwirrel-pim-wp-sync'); ?></th>
-                        <th style="text-align: right;"><?php esc_html_e('Verwijderd', 'skwirrel-pim-wp-sync'); ?></th>
-                        <th style="text-align: right;"><?php esc_html_e('Met kenm.', 'skwirrel-pim-wp-sync'); ?></th>
-                        <th style="text-align: right;"><?php esc_html_e('Zonder kenm.', 'skwirrel-pim-wp-sync'); ?></th>
-                        <th style="text-align: right;"><?php esc_html_e('Totaal', 'skwirrel-pim-wp-sync'); ?></th>
+                        <th style="text-align: right;"><?php esc_html_e('Created', 'skwirrel-pim-wp-sync'); ?></th>
+                        <th style="text-align: right;"><?php esc_html_e('Updated', 'skwirrel-pim-wp-sync'); ?></th>
+                        <th style="text-align: right;"><?php esc_html_e('Failed', 'skwirrel-pim-wp-sync'); ?></th>
+                        <th style="text-align: right;"><?php esc_html_e('Deleted', 'skwirrel-pim-wp-sync'); ?></th>
+                        <th style="text-align: right;"><?php esc_html_e('With attr.', 'skwirrel-pim-wp-sync'); ?></th>
+                        <th style="text-align: right;"><?php esc_html_e('Without attr.', 'skwirrel-pim-wp-sync'); ?></th>
+                        <th style="text-align: right;"><?php esc_html_e('Total', 'skwirrel-pim-wp-sync'); ?></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -678,9 +678,9 @@ class Skwirrel_WC_Sync_Admin_Settings {
                             <td><?php echo esc_html($timestamp); ?></td>
                             <td>
                                 <?php if ($is_success) : ?>
-                                    <span style="color: #00a32a; font-weight: bold;">✓ <?php esc_html_e('Geslaagd', 'skwirrel-pim-wp-sync'); ?></span>
+                                    <span style="color: #00a32a; font-weight: bold;">✓ <?php esc_html_e('Successful', 'skwirrel-pim-wp-sync'); ?></span>
                                 <?php else : ?>
-                                    <span style="color: #d63638; font-weight: bold;">✗ <?php esc_html_e('Mislukt', 'skwirrel-pim-wp-sync'); ?></span>
+                                    <span style="color: #d63638; font-weight: bold;">✗ <?php esc_html_e('Failed', 'skwirrel-pim-wp-sync'); ?></span>
                                 <?php endif; ?>
                             </td>
                             <td style="text-align: right;"><span style="color: #00a32a;"><?php echo esc_html((string)$created); ?></span></td>
@@ -712,11 +712,11 @@ class Skwirrel_WC_Sync_Admin_Settings {
                     <th scope="row"><label for="endpoint_url"><?php esc_html_e('JSON-RPC Endpoint URL', 'skwirrel-pim-wp-sync'); ?></label></th>
                     <td>
                         <input type="url" id="endpoint_url" name="<?php echo esc_attr(self::OPTION_KEY); ?>[endpoint_url]" value="<?php echo esc_attr($opts['endpoint_url'] ?? ''); ?>" class="regular-text" placeholder="https://xxx.skwirrel.eu/jsonrpc" required />
-                        <p class="description"><?php esc_html_e('Volledige URL naar het Skwirrel JSON-RPC endpoint.', 'skwirrel-pim-wp-sync'); ?></p>
+                        <p class="description"><?php esc_html_e('Full URL to the Skwirrel JSON-RPC endpoint.', 'skwirrel-pim-wp-sync'); ?></p>
                     </td>
                 </tr>
                 <tr>
-                    <th scope="row"><label for="auth_type"><?php esc_html_e('Authenticatie type', 'skwirrel-pim-wp-sync'); ?></label></th>
+                    <th scope="row"><label for="auth_type"><?php esc_html_e('Authentication type', 'skwirrel-pim-wp-sync'); ?></label></th>
                     <td>
                         <select id="auth_type" name="<?php echo esc_attr(self::OPTION_KEY); ?>[auth_type]">
                             <option value="bearer" <?php selected($opts['auth_type'] ?? 'bearer', 'bearer'); ?>><?php esc_html_e('Bearer token', 'skwirrel-pim-wp-sync'); ?></option>
@@ -727,18 +727,18 @@ class Skwirrel_WC_Sync_Admin_Settings {
                 <tr>
                     <th scope="row"><label for="auth_token"><?php esc_html_e('Token', 'skwirrel-pim-wp-sync'); ?></label></th>
                     <td>
-                        <input type="password" id="auth_token" name="<?php echo esc_attr(self::OPTION_KEY); ?>[auth_token]" value="<?php echo esc_attr($token_masked); ?>" class="regular-text" autocomplete="off" placeholder="<?php echo esc_attr($token_masked ?: __('Token invoeren…', 'skwirrel-pim-wp-sync')); ?>" />
-                        <p class="description"><?php esc_html_e('Na opslaan wordt de token niet in platte tekst getoond.', 'skwirrel-pim-wp-sync'); ?></p>
+                        <input type="password" id="auth_token" name="<?php echo esc_attr(self::OPTION_KEY); ?>[auth_token]" value="<?php echo esc_attr($token_masked); ?>" class="regular-text" autocomplete="off" placeholder="<?php echo esc_attr($token_masked ?: __('Enter token…', 'skwirrel-pim-wp-sync')); ?>" />
+                        <p class="description"><?php esc_html_e('After saving, the token will not be shown in plain text.', 'skwirrel-pim-wp-sync'); ?></p>
                     </td>
                 </tr>
                 <tr>
-                    <th scope="row"><label for="timeout"><?php esc_html_e('Timeout (seconden)', 'skwirrel-pim-wp-sync'); ?></label></th>
+                    <th scope="row"><label for="timeout"><?php esc_html_e('Timeout (seconds)', 'skwirrel-pim-wp-sync'); ?></label></th>
                     <td>
                         <input type="number" id="timeout" name="<?php echo esc_attr(self::OPTION_KEY); ?>[timeout]" value="<?php echo esc_attr((string) ($opts['timeout'] ?? 30)); ?>" min="5" max="120" />
                     </td>
                 </tr>
                 <tr>
-                    <th scope="row"><label for="retries"><?php esc_html_e('Aantal retries', 'skwirrel-pim-wp-sync'); ?></label></th>
+                    <th scope="row"><label for="retries"><?php esc_html_e('Number of retries', 'skwirrel-pim-wp-sync'); ?></label></th>
                     <td>
                         <input type="number" id="retries" name="<?php echo esc_attr(self::OPTION_KEY); ?>[retries]" value="<?php echo esc_attr((string) ($opts['retries'] ?? 2)); ?>" min="0" max="5" />
                     </td>
@@ -757,27 +757,27 @@ class Skwirrel_WC_Sync_Admin_Settings {
                     <th scope="row"><label for="batch_size"><?php esc_html_e('Batch size', 'skwirrel-pim-wp-sync'); ?></label></th>
                     <td>
                         <input type="number" id="batch_size" name="<?php echo esc_attr(self::OPTION_KEY); ?>[batch_size]" value="<?php echo esc_attr((string) ($opts['batch_size'] ?? 100)); ?>" min="10" max="500" />
-                        <p class="description"><?php esc_html_e('Producten per API-pagina (1–500).', 'skwirrel-pim-wp-sync'); ?></p>
+                        <p class="description"><?php esc_html_e('Products per API page (1–500).', 'skwirrel-pim-wp-sync'); ?></p>
                     </td>
                 </tr>
                 <tr>
-                    <th scope="row"><?php esc_html_e('Categorieën syncen', 'skwirrel-pim-wp-sync'); ?></th>
+                    <th scope="row"><?php esc_html_e('Sync categories', 'skwirrel-pim-wp-sync'); ?></th>
                     <td>
-                        <label><input type="checkbox" name="<?php echo esc_attr(self::OPTION_KEY); ?>[sync_categories]" value="1" <?php checked(!empty($opts['sync_categories'])); ?> /> <?php esc_html_e('Categorieën uit product_groups aanmaken en koppelen', 'skwirrel-pim-wp-sync'); ?></label>
+                        <label><input type="checkbox" name="<?php echo esc_attr(self::OPTION_KEY); ?>[sync_categories]" value="1" <?php checked(!empty($opts['sync_categories'])); ?> /> <?php esc_html_e('Create and assign categories from product_groups', 'skwirrel-pim-wp-sync'); ?></label>
                     </td>
                 </tr>
                 <tr>
-                    <th scope="row"><?php esc_html_e('Grouped products syncen', 'skwirrel-pim-wp-sync'); ?></th>
+                    <th scope="row"><?php esc_html_e('Sync grouped products', 'skwirrel-pim-wp-sync'); ?></th>
                     <td>
-                        <label><input type="checkbox" name="<?php echo esc_attr(self::OPTION_KEY); ?>[sync_grouped_products]" value="1" <?php checked(!empty($opts['sync_grouped_products'])); ?> /> <?php esc_html_e('Grouped products ophalen via getGroupedProducts (producten binnen groep kunnen variable zijn)', 'skwirrel-pim-wp-sync'); ?></label>
+                        <label><input type="checkbox" name="<?php echo esc_attr(self::OPTION_KEY); ?>[sync_grouped_products]" value="1" <?php checked(!empty($opts['sync_grouped_products'])); ?> /> <?php esc_html_e('Fetch grouped products via getGroupedProducts (products within a group can be variable)', 'skwirrel-pim-wp-sync'); ?></label>
                     </td>
                 </tr>
                 <tr>
-                    <th scope="row"><?php esc_html_e('Custom classes syncen', 'skwirrel-pim-wp-sync'); ?></th>
+                    <th scope="row"><?php esc_html_e('Sync custom classes', 'skwirrel-pim-wp-sync'); ?></th>
                     <td>
-                        <label><input type="checkbox" name="<?php echo esc_attr(self::OPTION_KEY); ?>[sync_custom_classes]" value="1" <?php checked(!empty($opts['sync_custom_classes'])); ?> /> <?php esc_html_e('Custom class attributen ophalen en als productkenmerken opslaan', 'skwirrel-pim-wp-sync'); ?></label>
+                        <label><input type="checkbox" name="<?php echo esc_attr(self::OPTION_KEY); ?>[sync_custom_classes]" value="1" <?php checked(!empty($opts['sync_custom_classes'])); ?> /> <?php esc_html_e('Fetch custom class attributes and save as product attributes', 'skwirrel-pim-wp-sync'); ?></label>
                         <br />
-                        <label style="margin-top:4px;display:inline-block;"><input type="checkbox" name="<?php echo esc_attr(self::OPTION_KEY); ?>[sync_trade_item_custom_classes]" value="1" <?php checked(!empty($opts['sync_trade_item_custom_classes'])); ?> /> <?php esc_html_e('Ook trade item custom classes meenemen', 'skwirrel-pim-wp-sync'); ?></label>
+                        <label style="margin-top:4px;display:inline-block;"><input type="checkbox" name="<?php echo esc_attr(self::OPTION_KEY); ?>[sync_trade_item_custom_classes]" value="1" <?php checked(!empty($opts['sync_trade_item_custom_classes'])); ?> /> <?php esc_html_e('Also include trade item custom classes', 'skwirrel-pim-wp-sync'); ?></label>
                     </td>
                 </tr>
                 <tr>
@@ -785,34 +785,34 @@ class Skwirrel_WC_Sync_Admin_Settings {
                     <td>
                         <?php $cc_mode = $opts['custom_class_filter_mode'] ?? ''; ?>
                         <select id="custom_class_filter_mode" name="<?php echo esc_attr(self::OPTION_KEY); ?>[custom_class_filter_mode]">
-                            <option value="" <?php selected($cc_mode, ''); ?>><?php esc_html_e('Geen filter (alle classes)', 'skwirrel-pim-wp-sync'); ?></option>
-                            <option value="whitelist" <?php selected($cc_mode, 'whitelist'); ?>><?php esc_html_e('Whitelist (alleen deze classes)', 'skwirrel-pim-wp-sync'); ?></option>
-                            <option value="blacklist" <?php selected($cc_mode, 'blacklist'); ?>><?php esc_html_e('Blacklist (alles behalve deze classes)', 'skwirrel-pim-wp-sync'); ?></option>
+                            <option value="" <?php selected($cc_mode, ''); ?>><?php esc_html_e('No filter (all classes)', 'skwirrel-pim-wp-sync'); ?></option>
+                            <option value="whitelist" <?php selected($cc_mode, 'whitelist'); ?>><?php esc_html_e('Whitelist (only these classes)', 'skwirrel-pim-wp-sync'); ?></option>
+                            <option value="blacklist" <?php selected($cc_mode, 'blacklist'); ?>><?php esc_html_e('Blacklist (all except these classes)', 'skwirrel-pim-wp-sync'); ?></option>
                         </select>
                         <br />
-                        <input type="text" id="custom_class_filter_ids" name="<?php echo esc_attr(self::OPTION_KEY); ?>[custom_class_filter_ids]" value="<?php echo esc_attr($opts['custom_class_filter_ids'] ?? ''); ?>" class="regular-text" placeholder="<?php esc_attr_e('bijv. 12, 45, BUIS', 'skwirrel-pim-wp-sync'); ?>" style="margin-top:6px;" />
-                        <p class="description"><?php esc_html_e('Komma-gescheiden class ID\'s of codes. Numerieke waarden worden als ID gebruikt, overige als class code.', 'skwirrel-pim-wp-sync'); ?></p>
+                        <input type="text" id="custom_class_filter_ids" name="<?php echo esc_attr(self::OPTION_KEY); ?>[custom_class_filter_ids]" value="<?php echo esc_attr($opts['custom_class_filter_ids'] ?? ''); ?>" class="regular-text" placeholder="<?php esc_attr_e('e.g. 12, 45, BUIS', 'skwirrel-pim-wp-sync'); ?>" style="margin-top:6px;" />
+                        <p class="description"><?php esc_html_e('Comma-separated class IDs or codes. Numeric values are used as ID, others as class code.', 'skwirrel-pim-wp-sync'); ?></p>
                     </td>
                 </tr>
                 <tr>
-                    <th scope="row"><label for="collection_ids"><?php esc_html_e('Collectie ID\'s (filter)', 'skwirrel-pim-wp-sync'); ?></label></th>
+                    <th scope="row"><label for="collection_ids"><?php esc_html_e('Collection IDs (filter)', 'skwirrel-pim-wp-sync'); ?></label></th>
                     <td>
-                        <input type="text" id="collection_ids" name="<?php echo esc_attr(self::OPTION_KEY); ?>[collection_ids]" value="<?php echo esc_attr($opts['collection_ids'] ?? ''); ?>" class="regular-text" placeholder="<?php esc_attr_e('bijv. 123, 456', 'skwirrel-pim-wp-sync'); ?>" />
-                        <p class="description"><?php esc_html_e('Comma-separated collectie ID\'s. Alleen producten uit deze collecties worden gesynchroniseerd. Leeg = alles synchroniseren.', 'skwirrel-pim-wp-sync'); ?></p>
+                        <input type="text" id="collection_ids" name="<?php echo esc_attr(self::OPTION_KEY); ?>[collection_ids]" value="<?php echo esc_attr($opts['collection_ids'] ?? ''); ?>" class="regular-text" placeholder="<?php esc_attr_e('e.g. 123, 456', 'skwirrel-pim-wp-sync'); ?>" />
+                        <p class="description"><?php esc_html_e('Comma-separated collection IDs. Only products from these collections will be synced. Empty = sync all.', 'skwirrel-pim-wp-sync'); ?></p>
                     </td>
                 </tr>
                 <tr>
-                    <th scope="row"><label for="sync_images"><?php esc_html_e('Afbeeldingen importeren', 'skwirrel-pim-wp-sync'); ?></label></th>
+                    <th scope="row"><label for="sync_images"><?php esc_html_e('Import images', 'skwirrel-pim-wp-sync'); ?></label></th>
                     <td>
                         <select id="sync_images" name="<?php echo esc_attr(self::OPTION_KEY); ?>[sync_images]">
-                            <option value="yes" <?php selected(($opts['sync_images'] ?? true), true); ?>><?php esc_html_e('Ja, naar media library', 'skwirrel-pim-wp-sync'); ?></option>
-                            <option value="no" <?php selected(($opts['sync_images'] ?? true), false); ?>><?php esc_html_e('Nee, overslaan', 'skwirrel-pim-wp-sync'); ?></option>
+                            <option value="yes" <?php selected(($opts['sync_images'] ?? true), true); ?>><?php esc_html_e('Yes, to media library', 'skwirrel-pim-wp-sync'); ?></option>
+                            <option value="no" <?php selected(($opts['sync_images'] ?? true), false); ?>><?php esc_html_e('No, skip', 'skwirrel-pim-wp-sync'); ?></option>
                         </select>
-                        <p class="description"><?php esc_html_e('Als import naar media library faalt (bijv. door security plugin), kies dan "Nee" om afbeeldingen over te slaan.', 'skwirrel-pim-wp-sync'); ?></p>
+                        <p class="description"><?php esc_html_e('If media library import fails (e.g. due to security plugin), choose "No" to skip images.', 'skwirrel-pim-wp-sync'); ?></p>
                     </td>
                 </tr>
                 <tr>
-                    <th scope="row"><label for="image_language_select"><?php esc_html_e('Contenttaal', 'skwirrel-pim-wp-sync'); ?></label></th>
+                    <th scope="row"><label for="image_language_select"><?php esc_html_e('Content language', 'skwirrel-pim-wp-sync'); ?></label></th>
                     <td>
                         <?php
                         $current_lang = $opts['image_language'] ?? 'nl';
@@ -822,16 +822,16 @@ class Skwirrel_WC_Sync_Admin_Settings {
                             <?php foreach (self::LANGUAGE_OPTIONS as $code => $label) : ?>
                                 <option value="<?php echo esc_attr($code); ?>" <?php selected($current_lang, $code); ?>><?php echo esc_html($label); ?></option>
                             <?php endforeach; ?>
-                            <option value="_custom" <?php selected($is_custom); ?>><?php esc_html_e('Anders…', 'skwirrel-pim-wp-sync'); ?></option>
+                            <option value="_custom" <?php selected($is_custom); ?>><?php esc_html_e('Other…', 'skwirrel-pim-wp-sync'); ?></option>
                         </select>
                         <span id="image_language_custom_wrap" style="display:<?php echo $is_custom ? 'inline-block' : 'none'; ?>;">
-                            <input type="text" id="image_language_custom" name="<?php echo esc_attr(self::OPTION_KEY); ?>[image_language_custom]" value="<?php echo esc_attr($is_custom ? $current_lang : ''); ?>" size="6" pattern="[a-z]{2}(-[A-Z]{2})?" placeholder="bijv. es-ES" />
+                            <input type="text" id="image_language_custom" name="<?php echo esc_attr(self::OPTION_KEY); ?>[image_language_custom]" value="<?php echo esc_attr($is_custom ? $current_lang : ''); ?>" size="6" pattern="[a-z]{2}(-[A-Z]{2})?" placeholder="e.g. es-ES" />
                         </span>
-                        <p class="description"><?php esc_html_e('Taalcode voor alle teksten: afbeelding alt/caption, ETIM-attributen.', 'skwirrel-pim-wp-sync'); ?></p>
+                        <p class="description"><?php esc_html_e('Language code for all text: image alt/caption, ETIM attributes.', 'skwirrel-pim-wp-sync'); ?></p>
                     </td>
                 </tr>
                 <tr>
-                    <th scope="row"><?php esc_html_e('API-talen (include_languages)', 'skwirrel-pim-wp-sync'); ?></th>
+                    <th scope="row"><?php esc_html_e('API languages (include_languages)', 'skwirrel-pim-wp-sync'); ?></th>
                     <td>
                         <?php
                         $saved_langs = !empty($opts['include_languages']) && is_array($opts['include_languages'])
@@ -849,34 +849,34 @@ class Skwirrel_WC_Sync_Admin_Settings {
                             <?php endforeach; ?>
                         </fieldset>
                         <p style="margin-top:8px;">
-                            <label for="include_languages_custom"><?php esc_html_e('Extra taalcodes (comma-separated):', 'skwirrel-pim-wp-sync'); ?></label><br />
-                            <input type="text" id="include_languages_custom" name="<?php echo esc_attr(self::OPTION_KEY); ?>[include_languages_custom]" value="<?php echo esc_attr(implode(', ', $custom_langs)); ?>" class="regular-text" placeholder="bijv. es, pt-BR" />
+                            <label for="include_languages_custom"><?php esc_html_e('Additional language codes (comma-separated):', 'skwirrel-pim-wp-sync'); ?></label><br />
+                            <input type="text" id="include_languages_custom" name="<?php echo esc_attr(self::OPTION_KEY); ?>[include_languages_custom]" value="<?php echo esc_attr(implode(', ', $custom_langs)); ?>" class="regular-text" placeholder="e.g. es, pt-BR" />
                         </p>
-                        <p class="description"><?php esc_html_e('Selecteer de talen die de API moet meesturen voor product translations en ETIM.', 'skwirrel-pim-wp-sync'); ?></p>
+                        <p class="description"><?php esc_html_e('Select the languages the API should include for product translations and ETIM.', 'skwirrel-pim-wp-sync'); ?></p>
                     </td>
                 </tr>
                 <tr>
-                    <th scope="row"><label for="verbose_logging"><?php esc_html_e('Uitgebreide logging', 'skwirrel-pim-wp-sync'); ?></label></th>
+                    <th scope="row"><label for="verbose_logging"><?php esc_html_e('Verbose logging', 'skwirrel-pim-wp-sync'); ?></label></th>
                     <td>
-                        <label><input type="checkbox" id="verbose_logging" name="<?php echo esc_attr(self::OPTION_KEY); ?>[verbose_logging]" value="1" <?php checked(!empty($opts['verbose_logging'])); ?> /> <?php esc_html_e('Log per product: bronnen, ETIM, attributen (zie WooCommerce → Status → Logs)', 'skwirrel-pim-wp-sync'); ?></label>
+                        <label><input type="checkbox" id="verbose_logging" name="<?php echo esc_attr(self::OPTION_KEY); ?>[verbose_logging]" value="1" <?php checked(!empty($opts['verbose_logging'])); ?> /> <?php esc_html_e('Log per product: sources, ETIM, attributes (see WooCommerce → Status → Logs)', 'skwirrel-pim-wp-sync'); ?></label>
                     </td>
                 </tr>
                 <tr>
-                    <th scope="row"><?php esc_html_e('Verwijderde producten opruimen', 'skwirrel-pim-wp-sync'); ?></th>
+                    <th scope="row"><?php esc_html_e('Clean up deleted products', 'skwirrel-pim-wp-sync'); ?></th>
                     <td>
-                        <label><input type="checkbox" name="<?php echo esc_attr(self::OPTION_KEY); ?>[purge_stale_products]" value="1" <?php checked(!empty($opts['purge_stale_products'])); ?> /> <?php esc_html_e('Producten en categorieën die niet meer in Skwirrel staan automatisch naar de prullenbak verplaatsen bij volledige sync', 'skwirrel-pim-wp-sync'); ?></label>
-                        <p class="description"><?php esc_html_e('Alleen actief bij volledige sync (handmatige sync of na verwijdering in WooCommerce). Niet actief bij delta sync of wanneer collectie-filter is ingesteld.', 'skwirrel-pim-wp-sync'); ?></p>
+                        <label><input type="checkbox" name="<?php echo esc_attr(self::OPTION_KEY); ?>[purge_stale_products]" value="1" <?php checked(!empty($opts['purge_stale_products'])); ?> /> <?php esc_html_e('Automatically trash products and categories no longer in Skwirrel during full sync', 'skwirrel-pim-wp-sync'); ?></label>
+                        <p class="description"><?php esc_html_e('Only active during full sync (manual sync or after deletion in WooCommerce). Not active during delta sync or when collection filter is set.', 'skwirrel-pim-wp-sync'); ?></p>
                     </td>
                 </tr>
                 <tr>
-                    <th scope="row"><?php esc_html_e('Verwijderwaarschuwing tonen', 'skwirrel-pim-wp-sync'); ?></th>
+                    <th scope="row"><?php esc_html_e('Show delete warning', 'skwirrel-pim-wp-sync'); ?></th>
                     <td>
-                        <label><input type="checkbox" name="<?php echo esc_attr(self::OPTION_KEY); ?>[show_delete_warning]" value="1" <?php checked($opts['show_delete_warning'] ?? true); ?> /> <?php esc_html_e('Toon waarschuwing bij het verwijderen van Skwirrel-producten en -categorieën in WooCommerce', 'skwirrel-pim-wp-sync'); ?></label>
-                        <p class="description"><?php esc_html_e('Skwirrel is leidend: verwijderde producten worden bij de volgende sync opnieuw aangemaakt. Deze waarschuwing herinnert gebruikers hieraan.', 'skwirrel-pim-wp-sync'); ?></p>
+                        <label><input type="checkbox" name="<?php echo esc_attr(self::OPTION_KEY); ?>[show_delete_warning]" value="1" <?php checked($opts['show_delete_warning'] ?? true); ?> /> <?php esc_html_e('Show warning when deleting Skwirrel products and categories in WooCommerce', 'skwirrel-pim-wp-sync'); ?></label>
+                        <p class="description"><?php esc_html_e('Skwirrel is the source of truth: deleted products will be recreated during the next sync. This warning reminds users of this.', 'skwirrel-pim-wp-sync'); ?></p>
                     </td>
                 </tr>
                 <tr>
-                    <th scope="row"><label for="use_sku_field"><?php esc_html_e('SKU veld', 'skwirrel-pim-wp-sync'); ?></label></th>
+                    <th scope="row"><label for="use_sku_field"><?php esc_html_e('SKU field', 'skwirrel-pim-wp-sync'); ?></label></th>
                     <td>
                         <select id="use_sku_field" name="<?php echo esc_attr(self::OPTION_KEY); ?>[use_sku_field]">
                             <option value="internal_product_code" <?php selected($opts['use_sku_field'] ?? 'internal_product_code', 'internal_product_code'); ?>><?php esc_html_e('internal_product_code', 'skwirrel-pim-wp-sync'); ?></option>
@@ -886,28 +886,28 @@ class Skwirrel_WC_Sync_Admin_Settings {
                 </tr>
             </table>
 
-            <?php submit_button(__('Instellingen opslaan', 'skwirrel-pim-wp-sync')); ?>
+            <?php submit_button(__('Save settings', 'skwirrel-pim-wp-sync')); ?>
         </form>
 
         <p>
-            <a href="<?php echo esc_url(wp_nonce_url(admin_url('admin-post.php?action=skwirrel_wc_sync_test'), 'skwirrel_wc_sync_test', '_wpnonce')); ?>" class="button"><?php esc_html_e('Test verbinding', 'skwirrel-pim-wp-sync'); ?></a>
+            <a href="<?php echo esc_url(wp_nonce_url(admin_url('admin-post.php?action=skwirrel_wc_sync_test'), 'skwirrel_wc_sync_test', '_wpnonce')); ?>" class="button"><?php esc_html_e('Test connection', 'skwirrel-pim-wp-sync'); ?></a>
         </p>
 
         <div class="skwirrel-danger-zone">
-            <h2><?php esc_html_e('Gevarenzone', 'skwirrel-pim-wp-sync'); ?></h2>
-            <p><?php esc_html_e('Verwijder alle producten die door Skwirrel zijn aangemaakt of gesynchroniseerd. Deze actie kan niet ongedaan worden gemaakt als je de prullenbak leegt.', 'skwirrel-pim-wp-sync'); ?></p>
+            <h2><?php esc_html_e('Danger zone', 'skwirrel-pim-wp-sync'); ?></h2>
+            <p><?php esc_html_e('Delete all products created or synced by Skwirrel. This action cannot be undone if you empty the trash.', 'skwirrel-pim-wp-sync'); ?></p>
             <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" id="skwirrel-purge-form">
                 <input type="hidden" name="action" value="skwirrel_wc_sync_purge" />
                 <?php wp_nonce_field('skwirrel_wc_sync_purge', '_wpnonce'); ?>
                 <p>
                     <label>
                         <input type="checkbox" name="skwirrel_purge_empty_trash" value="1" id="skwirrel-purge-permanent" />
-                        <?php esc_html_e('Ook de prullenbak legen (permanent verwijderen)', 'skwirrel-pim-wp-sync'); ?>
+                        <?php esc_html_e('Also empty the trash (permanently delete)', 'skwirrel-pim-wp-sync'); ?>
                     </label>
                 </p>
                 <p>
                     <?php submit_button(
-                        __('Alle Skwirrel-producten verwijderen', 'skwirrel-pim-wp-sync'),
+                        __('Delete all Skwirrel products', 'skwirrel-pim-wp-sync'),
                         'delete skwirrel-danger-button',
                         'submit',
                         false
@@ -922,8 +922,8 @@ class Skwirrel_WC_Sync_Admin_Settings {
             form.addEventListener('submit', function(e) {
                 var permanent = document.getElementById('skwirrel-purge-permanent').checked;
                 var msg = permanent
-                    ? <?php echo wp_json_encode(__('WAARSCHUWING: Alle Skwirrel-producten worden PERMANENT verwijderd. Dit kan niet ongedaan worden gemaakt!\n\nWeet je het zeker?', 'skwirrel-pim-wp-sync')); ?>
-                    : <?php echo wp_json_encode(__('Alle Skwirrel-producten worden naar de prullenbak verplaatst.\n\nWeet je het zeker?', 'skwirrel-pim-wp-sync')); ?>;
+                    ? <?php echo wp_json_encode(__('WARNING: All Skwirrel products will be PERMANENTLY deleted. This cannot be undone!\n\nAre you sure?', 'skwirrel-pim-wp-sync')); ?>
+                    : <?php echo wp_json_encode(__('All Skwirrel products will be moved to the trash.\n\nAre you sure?', 'skwirrel-pim-wp-sync')); ?>;
                 if (!confirm(msg)) {
                     e.preventDefault();
                 }
@@ -938,23 +938,23 @@ class Skwirrel_WC_Sync_Admin_Settings {
         $log_url = $logger->get_log_file_url();
 
         ?>
-        <h2><?php esc_html_e('Bekijk logs', 'skwirrel-pim-wp-sync'); ?></h2>
+        <h2><?php esc_html_e('View logs', 'skwirrel-pim-wp-sync'); ?></h2>
         <?php if ($log_url) : ?>
             <p>
-                <a href="<?php echo esc_url($log_url); ?>" class="button" target="_blank"><?php esc_html_e('Bekijk logs', 'skwirrel-pim-wp-sync'); ?></a>
+                <a href="<?php echo esc_url($log_url); ?>" class="button" target="_blank"><?php esc_html_e('View logs', 'skwirrel-pim-wp-sync'); ?></a>
             </p>
         <?php else : ?>
-            <p><?php esc_html_e('Geen logbestand beschikbaar.', 'skwirrel-pim-wp-sync'); ?></p>
+            <p><?php esc_html_e('No log file available.', 'skwirrel-pim-wp-sync'); ?></p>
         <?php endif; ?>
 
-        <h2><?php esc_html_e('Variatie-attributen debuggen', 'skwirrel-pim-wp-sync'); ?></h2>
-        <p><?php esc_html_e('Als variaties "Any Colour" / "Any Number of cups" tonen in plaats van echte waarden:', 'skwirrel-pim-wp-sync'); ?></p>
+        <h2><?php esc_html_e('Debug variation attributes', 'skwirrel-pim-wp-sync'); ?></h2>
+        <p><?php esc_html_e('If variations show "Any Colour" / "Any Number of cups" instead of real values:', 'skwirrel-pim-wp-sync'); ?></p>
         <ol style="list-style: decimal; margin-left: 1.5em;">
-            <li><?php esc_html_e('Voeg in wp-config.php toe: define(\'SKWIRREL_WC_SYNC_DEBUG_ETIM\', true);', 'skwirrel-pim-wp-sync'); ?></li>
-            <li><?php esc_html_e('Voer "Sync nu" uit.', 'skwirrel-pim-wp-sync'); ?></li>
-            <li><?php esc_html_e('Bekijk wp-content/uploads/skwirrel-variation-debug.log', 'skwirrel-pim-wp-sync'); ?></li>
-            <li><?php esc_html_e('Controleer: etim_values_found leeg? → API-talen moet overeenkomen met getProducts (bijv. en, en-GB).', 'skwirrel-pim-wp-sync'); ?></li>
-            <li><?php esc_html_e('ATTR VERIFY FAIL in de log? → meta wordt niet correct weggeschreven; controleer wp_postmeta voor attribute_pa_color/attribute_pa_cups.', 'skwirrel-pim-wp-sync'); ?></li>
+            <li><?php esc_html_e('Add to wp-config.php: define(\'SKWIRREL_WC_SYNC_DEBUG_ETIM\', true);', 'skwirrel-pim-wp-sync'); ?></li>
+            <li><?php esc_html_e('Run "Sync Products".', 'skwirrel-pim-wp-sync'); ?></li>
+            <li><?php esc_html_e('Check wp-content/uploads/skwirrel-variation-debug.log', 'skwirrel-pim-wp-sync'); ?></li>
+            <li><?php esc_html_e('Check: etim_values_found empty? → API languages must match getProducts (e.g. en, en-GB).', 'skwirrel-pim-wp-sync'); ?></li>
+            <li><?php esc_html_e('ATTR VERIFY FAIL in the log? → meta is not being written correctly; check wp_postmeta for attribute_pa_color/attribute_pa_cups.', 'skwirrel-pim-wp-sync'); ?></li>
         </ol>
         <?php
     }
@@ -964,20 +964,20 @@ class Skwirrel_WC_Sync_Admin_Settings {
         if (isset($_GET['test'])) {
             // phpcs:ignore WordPress.Security.NonceVerification.Recommended
             if ($_GET['test'] === 'ok') {
-                echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__('Verbinding test geslaagd.', 'skwirrel-pim-wp-sync') . '</p></div>';
+                echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__('Connection test successful.', 'skwirrel-pim-wp-sync') . '</p></div>';
             } else {
                 // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- display-only redirect parameter
-                $msg = isset($_GET['message']) ? sanitize_text_field(wp_unslash($_GET['message'])) : __('Verbinding mislukt.', 'skwirrel-pim-wp-sync');
+                $msg = isset($_GET['message']) ? sanitize_text_field(wp_unslash($_GET['message'])) : __('Connection failed.', 'skwirrel-pim-wp-sync');
                 echo '<div class="notice notice-error is-dismissible"><p>' . esc_html($msg) . '</p></div>';
             }
         }
         // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- display-only redirect parameter
         if (isset($_GET['sync']) && $_GET['sync'] === 'queued') {
-            echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__('Sync is gestart op de achtergrond. De resultaten verschijnen hier zodra de sync is voltooid. Vernieuw de pagina om de status te controleren.', 'skwirrel-pim-wp-sync') . '</p></div>';
+            echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__('Sync started in the background. Results will appear here once the sync is completed. Refresh the page to check the status.', 'skwirrel-pim-wp-sync') . '</p></div>';
         }
         // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- display-only redirect parameter
         if (isset($_GET['purge']) && $_GET['purge'] === 'queued') {
-            echo '<div class="notice notice-warning is-dismissible"><p>' . esc_html__('Purge is gestart op de achtergrond. Alle Skwirrel-producten, geïmporteerde media, categorieën en attributen worden verwijderd. Vernieuw de pagina om de status te controleren.', 'skwirrel-pim-wp-sync') . '</p></div>';
+            echo '<div class="notice notice-warning is-dismissible"><p>' . esc_html__('Purge started in the background. All Skwirrel products, imported media, categories and attributes will be deleted. Refresh the page to check the status.', 'skwirrel-pim-wp-sync') . '</p></div>';
         }
         // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- display-only redirect parameter
         if (isset($_GET['sync']) && $_GET['sync'] === 'done') {
@@ -987,7 +987,7 @@ class Skwirrel_WC_Sync_Admin_Settings {
                 $without_a = (int) ($last['without_attributes'] ?? 0);
                 $msg = sprintf(
                     /* translators: %1$d = created count, %2$d = updated count, %3$d = failed count */
-                    esc_html__('Sync voltooid. Aangemaakt: %1$d, Bijgewerkt: %2$d, Mislukt: %3$d', 'skwirrel-pim-wp-sync'),
+                    esc_html__('Sync completed. Created: %1$d, Updated: %2$d, Failed: %3$d', 'skwirrel-pim-wp-sync'),
                     (int) $last['created'],
                     (int) $last['updated'],
                     (int) $last['failed']
@@ -995,14 +995,14 @@ class Skwirrel_WC_Sync_Admin_Settings {
                 if ($with_a + $without_a > 0) {
                     $msg .= ' ' . sprintf(
                         /* translators: %1$d = count with attributes, %2$d = count without attributes */
-                        esc_html__('(met kenmerken: %1$d, zonder: %2$d)', 'skwirrel-pim-wp-sync'),
+                        esc_html__('(with attributes: %1$d, without: %2$d)', 'skwirrel-pim-wp-sync'),
                         $with_a,
                         $without_a
                     );
                 }
                 echo '<div class="notice notice-success is-dismissible"><p>' . esc_html( $msg ) . '</p></div>';
             } else {
-                echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__('Sync voltooid. Controleer de logs voor details.', 'skwirrel-pim-wp-sync') . '</p></div>';
+                echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__('Sync completed. Check the logs for details.', 'skwirrel-pim-wp-sync') . '</p></div>';
             }
         }
     }

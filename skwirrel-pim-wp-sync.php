@@ -3,7 +3,7 @@
  * Plugin Name: Skwirrel PIM Sync
  * Plugin URI: https://github.com/Skwirrel-B-V/skwirrel-pim-wp-sync
  * Description: Sync plugin for Skwirrel PIM via Skwirrel JSON-RPC API to WooCommerce.
- * Version: 1.3.0
+ * Version: 1.3.2
  * Author: Skwirrel B.V.
  * Author URI: https://skwirrel.eu
  * Requires at least: 6.0
@@ -21,7 +21,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('SKWIRREL_WC_SYNC_VERSION', '1.3.0');
+define('SKWIRREL_WC_SYNC_VERSION', '1.3.2');
 define('SKWIRREL_WC_SYNC_PLUGIN_FILE', __FILE__);
 define('SKWIRREL_WC_SYNC_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('SKWIRREL_WC_SYNC_PLUGIN_URL', plugin_dir_url(__FILE__));
@@ -38,9 +38,9 @@ register_activation_hook(__FILE__, function (): void {
     if (!class_exists('WooCommerce') && !in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_option('active_plugins', [])), true)) {
         deactivate_plugins(plugin_basename(__FILE__));
         wp_die(
-            esc_html__('Skwirrel PIM Sync vereist WooCommerce om te functioneren.', 'skwirrel-pim-wp-sync')
+            esc_html__('Skwirrel PIM Sync requires WooCommerce to function.', 'skwirrel-pim-wp-sync')
             . ' <a href="' . esc_url(admin_url('plugin-install.php?s=woocommerce&tab=search&type=term')) . '">'
-            . esc_html__('Installeer WooCommerce', 'skwirrel-pim-wp-sync') . '</a>.',
+            . esc_html__('Install WooCommerce', 'skwirrel-pim-wp-sync') . '</a>.',
             'Plugin Activation Error',
             ['back_link' => true]
         );
@@ -109,7 +109,7 @@ final class Skwirrel_WC_Sync_Plugin {
                 printf(
                     wp_kses(
                         /* translators: %1$s = install URL, %2$s = activate URL */
-                        __('WooCommerce is vereist. <a href="%1$s">Installeer WooCommerce</a> of <a href="%2$s">activeer WooCommerce</a>.', 'skwirrel-pim-wp-sync'),
+                        __('WooCommerce is required. <a href="%1$s">Install WooCommerce</a> or <a href="%2$s">activate WooCommerce</a>.', 'skwirrel-pim-wp-sync'),
                         ['a' => ['href' => []]]
                     ),
                     esc_url($install_url),
