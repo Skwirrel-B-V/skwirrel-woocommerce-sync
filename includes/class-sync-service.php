@@ -44,10 +44,11 @@ class Skwirrel_WC_Sync_Service {
     /**
      * Run sync. Returns summary array.
      *
-     * @param bool $delta Use delta sync (updated_on >= last sync) if possible.
+     * @param bool   $delta   Use delta sync (updated_on >= last sync) if possible.
+     * @param string $trigger What initiated the sync: 'manual' or 'scheduled'.
      * @return array{success: bool, created: int, updated: int, failed: int, error?: string}
      */
-    public function run_sync(bool $delta = false): array {
+    public function run_sync(bool $delta = false, string $trigger = Skwirrel_WC_Sync_History::TRIGGER_MANUAL): array {
         if (function_exists('set_time_limit')) {
             @set_time_limit(0); // phpcs:ignore Generic.PHP.NoSilencedErrors.Discouraged,Squiz.PHP.DiscouragedFunctions.Discouraged -- long-running sync requires no time limit
         }
@@ -169,7 +170,7 @@ class Skwirrel_WC_Sync_Service {
         if (!$result['success']) {
             $err = $result['error'] ?? ['message' => 'Unknown error'];
             $this->logger->error('Sync API error', $err);
-            Skwirrel_WC_Sync_History::update_last_result(false, $created, $updated, $failed, $err['message'] ?? '');
+            Skwirrel_WC_Sync_History::update_last_result(false, $created, $updated, $failed, $err['message'] ?? '', 0, 0, 0, 0, $trigger);
             return ['success' => false, 'error' => $err['message'] ?? 'API error', 'created' => 0, 'updated' => 0, 'failed' => 0];
         }
 
@@ -183,7 +184,7 @@ class Skwirrel_WC_Sync_Service {
 
         if ($delta && empty($products)) {
             $this->logger->info('Delta sync: no products updated since last sync');
-            Skwirrel_WC_Sync_History::update_last_result(true, 0, 0, 0);
+            Skwirrel_WC_Sync_History::update_last_result(true, 0, 0, 0, '', 0, 0, 0, 0, $trigger);
             return ['success' => true, 'created' => 0, 'updated' => 0, 'failed' => 0];
         }
 
@@ -390,7 +391,7 @@ class Skwirrel_WC_Sync_Service {
         }
 
         update_option(Skwirrel_WC_Sync_History::OPTION_LAST_SYNC, gmdate('Y-m-d\TH:i:s\Z'));
-        Skwirrel_WC_Sync_History::update_last_result(true, $created, $updated, $failed, '', $with_attrs, $without_attrs, $trashed, $categories_removed);
+        Skwirrel_WC_Sync_History::update_last_result(true, $created, $updated, $failed, '', $with_attrs, $without_attrs, $trashed, $categories_removed, $trigger);
 
         $this->logger->info('Sync completed', [
             'created' => $created,

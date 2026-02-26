@@ -71,7 +71,7 @@ class Skwirrel_WC_Sync_Action_Scheduler {
 
         $delta = $force_full ? false : ($args['delta'] ?? true);
         $service = new Skwirrel_WC_Sync_Service();
-        $service->run_sync($delta);
+        $service->run_sync($delta, Skwirrel_WC_Sync_History::TRIGGER_SCHEDULED);
     }
 
     /**

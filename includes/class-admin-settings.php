@@ -285,7 +285,7 @@ class Skwirrel_WC_Sync_Admin_Settings {
         delete_transient(self::BG_SYNC_TRANSIENT . '_' . $token);
 
         $service = new Skwirrel_WC_Sync_Service();
-        $service->run_sync(false);
+        $service->run_sync(false, Skwirrel_WC_Sync_History::TRIGGER_MANUAL);
 
         delete_transient(Skwirrel_WC_Sync_History::SYNC_IN_PROGRESS);
 
@@ -585,6 +585,7 @@ class Skwirrel_WC_Sync_Admin_Settings {
                 <thead>
                     <tr>
                         <th><?php esc_html_e('Date & Time', 'skwirrel-pim-wp-sync'); ?></th>
+                        <th><?php esc_html_e('Trigger', 'skwirrel-pim-wp-sync'); ?></th>
                         <th><?php esc_html_e('Status', 'skwirrel-pim-wp-sync'); ?></th>
                         <th style="text-align: right;"><?php esc_html_e('Created', 'skwirrel-pim-wp-sync'); ?></th>
                         <th style="text-align: right;"><?php esc_html_e('Updated', 'skwirrel-pim-wp-sync'); ?></th>
@@ -599,19 +600,30 @@ class Skwirrel_WC_Sync_Admin_Settings {
                     <?php foreach ($sync_history as $entry) : ?>
                         <?php
                         $is_success = !empty($entry['success']);
+                        $entry_trigger = $entry['trigger'] ?? Skwirrel_WC_Sync_History::TRIGGER_MANUAL;
+                        $is_purge = ($entry_trigger === Skwirrel_WC_Sync_History::TRIGGER_PURGE);
                         $created = (int) ($entry['created'] ?? 0);
                         $updated = (int) ($entry['updated'] ?? 0);
                         $failed = (int) ($entry['failed'] ?? 0);
                         $trashed_h = (int) ($entry['trashed'] ?? 0);
                         $with_attrs = (int) ($entry['with_attributes'] ?? 0);
                         $without_attrs = (int) ($entry['without_attributes'] ?? 0);
-                        $total = $created + $updated + $failed;
+                        $total = $is_purge ? $trashed_h : ($created + $updated + $failed);
                         $timestamp = !empty($entry['timestamp']) ? wp_date(get_option('date_format') . ' ' . get_option('time_format'), $entry['timestamp']) : '-';
+                        $trigger_labels = [
+                            Skwirrel_WC_Sync_History::TRIGGER_MANUAL    => _x('Manual', 'sync trigger', 'skwirrel-pim-wp-sync'),
+                            Skwirrel_WC_Sync_History::TRIGGER_SCHEDULED => __('Scheduled', 'skwirrel-pim-wp-sync'),
+                            Skwirrel_WC_Sync_History::TRIGGER_PURGE     => __('Purge', 'skwirrel-pim-wp-sync'),
+                        ];
+                        $trigger_label = $trigger_labels[$entry_trigger] ?? $trigger_labels[Skwirrel_WC_Sync_History::TRIGGER_MANUAL];
                         ?>
-                        <tr>
+                        <tr<?php echo $is_purge ? ' style="background: #fff3cd;"' : ''; ?>>
                             <td><?php echo esc_html($timestamp); ?></td>
+                            <td><?php echo esc_html($trigger_label); ?></td>
                             <td>
-                                <?php if ($is_success) : ?>
+                                <?php if ($is_purge) : ?>
+                                    <span style="color: #856404; font-weight: bold;">⚠ <?php esc_html_e('Purged', 'skwirrel-pim-wp-sync'); ?></span>
+                                <?php elseif ($is_success) : ?>
                                     <span style="color: #00a32a; font-weight: bold;">✓ <?php esc_html_e('Successful', 'skwirrel-pim-wp-sync'); ?></span>
                                 <?php else : ?>
                                     <span style="color: #d63638; font-weight: bold;">✗ <?php esc_html_e('Failed', 'skwirrel-pim-wp-sync'); ?></span>

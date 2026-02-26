@@ -32,6 +32,11 @@ class Skwirrel_WC_Sync_History {
     /** @var int Time-to-live in seconds for the sync-in-progress transient. */
     public const HEARTBEAT_TTL = 60;
 
+    /** Trigger types. */
+    public const TRIGGER_MANUAL    = 'manual';
+    public const TRIGGER_SCHEDULED = 'scheduled';
+    public const TRIGGER_PURGE     = 'purge';
+
     /**
      * Refresh the sync-in-progress transient so the UI knows the sync is still alive.
      *
@@ -56,7 +61,8 @@ class Skwirrel_WC_Sync_History {
      * Get the result array of the last completed sync.
      *
      * @return array|null Array with keys: success, created, updated, failed, trashed,
-     *                    categories_removed, error, with_attributes, without_attributes, timestamp.
+     *                    categories_removed, error, with_attributes, without_attributes,
+     *                    trigger, timestamp.
      *                    Returns null if no result has been recorded.
      */
     public static function get_last_result(): ?array {
@@ -68,7 +74,7 @@ class Skwirrel_WC_Sync_History {
      *
      * @return array List of result arrays, each with keys: success, created, updated,
      *               failed, trashed, categories_removed, error, with_attributes,
-     *               without_attributes, timestamp.
+     *               without_attributes, trigger, timestamp.
      */
     public static function get_sync_history(): array {
         $history = get_option(self::OPTION_SYNC_HISTORY, []);
@@ -90,6 +96,7 @@ class Skwirrel_WC_Sync_History {
      * @param int    $without_attrs      Number of products synced without attributes.
      * @param int    $trashed            Number of stale products trashed.
      * @param int    $categories_removed Number of stale categories removed.
+     * @param string $trigger            What initiated the sync: 'manual', 'scheduled', or 'purge'.
      *
      * @return void
      */
@@ -102,7 +109,8 @@ class Skwirrel_WC_Sync_History {
         int $with_attrs = 0,
         int $without_attrs = 0,
         int $trashed = 0,
-        int $categories_removed = 0
+        int $categories_removed = 0,
+        string $trigger = self::TRIGGER_MANUAL
     ): void {
         $result = [
             'success'              => $ok,
@@ -114,20 +122,43 @@ class Skwirrel_WC_Sync_History {
             'error'                => $error,
             'with_attributes'      => $with_attrs,
             'without_attributes'   => $without_attrs,
+            'trigger'              => $trigger,
             'timestamp'            => time(),
         ];
 
         update_option(self::OPTION_LAST_SYNC_RESULT, $result, false);
         delete_transient(self::SYNC_IN_PROGRESS);
 
-        // Add to history
+        self::append_to_history($result);
+    }
+
+    /**
+     * Add a history entry without updating the last sync result.
+     *
+     * Used for purge operations and other non-sync events that should appear
+     * in history but not overwrite the last sync status.
+     *
+     * @param array $entry History entry array (must include 'timestamp' and 'trigger').
+     * @return void
+     */
+    public static function add_history_entry(array $entry): void {
+        self::append_to_history($entry);
+    }
+
+    /**
+     * Append an entry to the history array.
+     *
+     * @param array $entry History entry.
+     * @return void
+     */
+    private static function append_to_history(array $entry): void {
         $history = get_option(self::OPTION_SYNC_HISTORY, []);
         if (!is_array($history)) {
             $history = [];
         }
 
         // Prepend newest entry at the beginning
-        array_unshift($history, $result);
+        array_unshift($history, $entry);
 
         // Keep only the latest MAX_HISTORY_ENTRIES
         $history = array_slice($history, 0, self::MAX_HISTORY_ENTRIES);

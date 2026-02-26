@@ -572,6 +572,27 @@ msgstr "Alle synchronisatiegeschiedenis verwijderen?"
 msgid "Sync history deleted."
 msgstr "Synchronisatiegeschiedenis verwijderd."
 
+#: includes/class-admin-settings.php
+msgid "Trigger"
+msgstr "Trigger"
+
+#: includes/class-admin-settings.php
+msgctxt "sync trigger"
+msgid "Manual"
+msgstr "Handmatig"
+
+#: includes/class-admin-settings.php
+msgid "Scheduled"
+msgstr "Gepland"
+
+#: includes/class-admin-settings.php
+msgid "Purge"
+msgstr "Opschonen"
+
+#: includes/class-admin-settings.php
+msgid "Purged"
+msgstr "Opgeschoond"
+
 #: includes/class-permalink-settings.php
 msgid "Skwirrel product slugs"
 msgstr "Skwirrel product-slugs"

@@ -572,6 +572,27 @@ msgstr "Supprimer tout l'historique de synchronisation ?"
 msgid "Sync history deleted."
 msgstr "Historique de synchronisation supprimé."
 
+#: includes/class-admin-settings.php
+msgid "Trigger"
+msgstr "Déclencheur"
+
+#: includes/class-admin-settings.php
+msgctxt "sync trigger"
+msgid "Manual"
+msgstr "Manuel"
+
+#: includes/class-admin-settings.php
+msgid "Scheduled"
+msgstr "Planifié"
+
+#: includes/class-admin-settings.php
+msgid "Purge"
+msgstr "Purge"
+
+#: includes/class-admin-settings.php
+msgid "Purged"
+msgstr "Purgé"
+
 #: includes/class-permalink-settings.php
 msgid "Skwirrel product slugs"
 msgstr "Slugs de produits Skwirrel"

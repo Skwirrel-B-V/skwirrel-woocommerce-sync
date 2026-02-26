@@ -26,6 +26,12 @@ if (!function_exists('__')) {
     }
 }
 
+if (!function_exists('_x')) {
+    function _x(string $text, string $context, string $domain = 'default'): string {
+        return $text;
+    }
+}
+
 if (!function_exists('esc_html')) {
     function esc_html(string $text): string {
         return htmlspecialchars($text, ENT_QUOTES, 'UTF-8');

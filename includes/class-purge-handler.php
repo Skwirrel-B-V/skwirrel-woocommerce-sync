@@ -204,15 +204,15 @@ class Skwirrel_WC_Sync_Purge_Handler {
         }
 
         // --- Step 7: Reset sync state options ---
+        // Keep last_result visible so users can still see the last sync status.
         delete_option('skwirrel_wc_sync_last_sync');
-        delete_option('skwirrel_wc_sync_last_result');
         delete_option('skwirrel_wc_sync_force_full_sync');
-        $this->logger->info('Purge: sync state options reset.');
+        $this->logger->info('Purge: sync state options reset (last sync result preserved).');
 
-        // --- Step 8: Store purge result ---
+        // --- Step 8: Store purge result + add history entry ---
         $this->logger->info("Purge completed: {$deleted} products, {$attachments_deleted} media, {$categories_deleted} categories, {$brands_deleted} brands, {$attributes_deleted} attributes (mode: {$mode_label})");
 
-        update_option('skwirrel_wc_sync_last_purge', [
+        $purge_result = [
             'timestamp' => time(),
             'mode' => $mode_label,
             'products' => $deleted,
@@ -220,7 +220,28 @@ class Skwirrel_WC_Sync_Purge_Handler {
             'categories' => $categories_deleted,
             'brands' => $brands_deleted,
             'attributes' => $attributes_deleted,
-        ], false);
+        ];
+
+        update_option('skwirrel_wc_sync_last_purge', $purge_result, false);
+
+        // Add purge to sync history so it's visible in the history table.
+        Skwirrel_WC_Sync_History::add_history_entry([
+            'success'            => true,
+            'trigger'            => Skwirrel_WC_Sync_History::TRIGGER_PURGE,
+            'created'            => 0,
+            'updated'            => 0,
+            'failed'             => 0,
+            'trashed'            => $deleted,
+            'categories_removed' => $categories_deleted,
+            'with_attributes'    => 0,
+            'without_attributes' => 0,
+            'error'              => '',
+            'purge_mode'         => $mode_label,
+            'purge_attachments'  => $attachments_deleted,
+            'purge_brands'       => $brands_deleted,
+            'purge_attributes'   => $attributes_deleted,
+            'timestamp'          => time(),
+        ]);
     }
 
     /**
