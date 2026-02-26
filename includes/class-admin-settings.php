@@ -837,26 +837,26 @@ class Skwirrel_WC_Sync_Admin_Settings {
                     <th scope="row"><label for="slug_source_field"><?php esc_html_e('Slug source', 'skwirrel-pim-wp-sync'); ?></label></th>
                     <td>
                         <select id="slug_source_field" name="<?php echo esc_attr(self::OPTION_KEY); ?>[slug_source_field]">
-                            <option value="product_name" <?php selected($opts['slug_source_field'] ?? 'product_name', 'product_name'); ?>><?php esc_html_e('Productnaam (standaard)', 'skwirrel-pim-wp-sync'); ?></option>
-                            <option value="internal_product_code" <?php selected($opts['slug_source_field'] ?? '', 'internal_product_code'); ?>><?php esc_html_e('Intern artikelcode (SKU)', 'skwirrel-pim-wp-sync'); ?></option>
-                            <option value="manufacturer_product_code" <?php selected($opts['slug_source_field'] ?? '', 'manufacturer_product_code'); ?>><?php esc_html_e('Fabrikant artikelcode', 'skwirrel-pim-wp-sync'); ?></option>
-                            <option value="external_product_id" <?php selected($opts['slug_source_field'] ?? '', 'external_product_id'); ?>><?php esc_html_e('Extern product ID', 'skwirrel-pim-wp-sync'); ?></option>
+                            <option value="product_name" <?php selected($opts['slug_source_field'] ?? 'product_name', 'product_name'); ?>><?php esc_html_e('Product name (default)', 'skwirrel-pim-wp-sync'); ?></option>
+                            <option value="internal_product_code" <?php selected($opts['slug_source_field'] ?? '', 'internal_product_code'); ?>><?php esc_html_e('Internal product code (SKU)', 'skwirrel-pim-wp-sync'); ?></option>
+                            <option value="manufacturer_product_code" <?php selected($opts['slug_source_field'] ?? '', 'manufacturer_product_code'); ?>><?php esc_html_e('Manufacturer product code', 'skwirrel-pim-wp-sync'); ?></option>
+                            <option value="external_product_id" <?php selected($opts['slug_source_field'] ?? '', 'external_product_id'); ?>><?php esc_html_e('External product ID', 'skwirrel-pim-wp-sync'); ?></option>
                             <option value="product_id" <?php selected($opts['slug_source_field'] ?? '', 'product_id'); ?>><?php esc_html_e('Skwirrel product ID', 'skwirrel-pim-wp-sync'); ?></option>
                         </select>
-                        <p class="description"><?php esc_html_e('Het bronveld dat wordt gebruikt als basis-URL (slug) voor nieuwe producten.', 'skwirrel-pim-wp-sync'); ?></p>
+                        <p class="description"><?php esc_html_e('The source field used as the base URL (slug) for new products.', 'skwirrel-pim-wp-sync'); ?></p>
                     </td>
                 </tr>
                 <tr>
-                    <th scope="row"><label for="slug_suffix_field"><?php esc_html_e('Slug suffix (bij duplicaat)', 'skwirrel-pim-wp-sync'); ?></label></th>
+                    <th scope="row"><label for="slug_suffix_field"><?php esc_html_e('Slug suffix (on duplicate)', 'skwirrel-pim-wp-sync'); ?></label></th>
                     <td>
                         <select id="slug_suffix_field" name="<?php echo esc_attr(self::OPTION_KEY); ?>[slug_suffix_field]">
-                            <option value="" <?php selected($opts['slug_suffix_field'] ?? '', ''); ?>><?php esc_html_e('Geen — WordPress nummert automatisch (-2, -3)', 'skwirrel-pim-wp-sync'); ?></option>
-                            <option value="internal_product_code" <?php selected($opts['slug_suffix_field'] ?? '', 'internal_product_code'); ?>><?php esc_html_e('Intern artikelcode (SKU)', 'skwirrel-pim-wp-sync'); ?></option>
-                            <option value="manufacturer_product_code" <?php selected($opts['slug_suffix_field'] ?? '', 'manufacturer_product_code'); ?>><?php esc_html_e('Fabrikant artikelcode', 'skwirrel-pim-wp-sync'); ?></option>
-                            <option value="external_product_id" <?php selected($opts['slug_suffix_field'] ?? '', 'external_product_id'); ?>><?php esc_html_e('Extern product ID', 'skwirrel-pim-wp-sync'); ?></option>
+                            <option value="" <?php selected($opts['slug_suffix_field'] ?? '', ''); ?>><?php esc_html_e('None — WordPress auto-numbers (-2, -3)', 'skwirrel-pim-wp-sync'); ?></option>
+                            <option value="internal_product_code" <?php selected($opts['slug_suffix_field'] ?? '', 'internal_product_code'); ?>><?php esc_html_e('Internal product code (SKU)', 'skwirrel-pim-wp-sync'); ?></option>
+                            <option value="manufacturer_product_code" <?php selected($opts['slug_suffix_field'] ?? '', 'manufacturer_product_code'); ?>><?php esc_html_e('Manufacturer product code', 'skwirrel-pim-wp-sync'); ?></option>
+                            <option value="external_product_id" <?php selected($opts['slug_suffix_field'] ?? '', 'external_product_id'); ?>><?php esc_html_e('External product ID', 'skwirrel-pim-wp-sync'); ?></option>
                             <option value="product_id" <?php selected($opts['slug_suffix_field'] ?? '', 'product_id'); ?>><?php esc_html_e('Skwirrel product ID', 'skwirrel-pim-wp-sync'); ?></option>
                         </select>
-                        <p class="description"><?php esc_html_e('Als de slug al bestaat, wordt dit veld als suffix toegevoegd. Bestaande slugs worden niet gewijzigd.', 'skwirrel-pim-wp-sync'); ?></p>
+                        <p class="description"><?php esc_html_e('If the slug already exists, this field is appended as a suffix. Existing slugs are not changed.', 'skwirrel-pim-wp-sync'); ?></p>
                     </td>
                 </tr>
             </table>

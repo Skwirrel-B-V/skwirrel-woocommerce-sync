@@ -41,7 +41,7 @@ class Skwirrel_WC_Sync_Product_Upserter {
         Skwirrel_WC_Sync_Category_Sync $category_sync,
         Skwirrel_WC_Sync_Brand_Sync $brand_sync,
         Skwirrel_WC_Sync_Taxonomy_Manager $taxonomy_manager,
-        Skwirrel_WC_Sync_Slug_Resolver $slug_resolver = new Skwirrel_WC_Sync_Slug_Resolver()
+        Skwirrel_WC_Sync_Slug_Resolver $slug_resolver
     ) {
         $this->logger = $logger;
         $this->mapper = $mapper;

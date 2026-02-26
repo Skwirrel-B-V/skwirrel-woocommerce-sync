@@ -23,30 +23,19 @@ class Skwirrel_WC_Sync_Slug_Resolver {
      * @return string|null Slug or null.
      */
     public function resolve(array $product): ?string {
-        $opts = get_option('skwirrel_wc_sync_settings', []);
+        $opts = $this->get_settings();
         $primary = $opts['slug_source_field'] ?? 'product_name';
-        $suffix_field = $opts['slug_suffix_field'] ?? '';
 
-        $base = $this->resolve_base($product, $primary);
+        if ($primary === 'product_name') {
+            return null;
+        }
+
+        $base = $this->sanitize_field($this->resolve_raw_value($product, $primary));
         if ($base === null) {
             return null;
         }
 
-        if (!$this->slug_exists($base)) {
-            return $base;
-        }
-
-        if ($suffix_field !== '') {
-            $suffix_value = $this->resolve_raw_value($product, $suffix_field);
-            if ($suffix_value !== '') {
-                $candidate = $base . '-' . sanitize_title($suffix_value);
-                if ($candidate !== $base && $candidate !== '') {
-                    return $candidate;
-                }
-            }
-        }
-
-        return $base;
+        return $this->resolve_unique($base, $product, $opts);
     }
 
     /**
@@ -57,29 +46,40 @@ class Skwirrel_WC_Sync_Slug_Resolver {
      * @return string|null Slug or null.
      */
     public function resolve_for_group(array $group): ?string {
-        $opts = get_option('skwirrel_wc_sync_settings', []);
+        $opts = $this->get_settings();
         $primary = $opts['slug_source_field'] ?? 'product_name';
-        $suffix_field = $opts['slug_suffix_field'] ?? '';
 
         if ($primary === 'product_name') {
             return null;
         }
 
-        $raw = $this->resolve_group_raw_value($group, $primary);
-        if ($raw === '') {
-            return null;
-        }
-        $base = sanitize_title($raw);
-        if ($base === '') {
+        $base = $this->sanitize_field($this->resolve_group_raw_value($group, $primary));
+        if ($base === null) {
             return null;
         }
 
+        return $this->resolve_unique($base, $group, $opts, true);
+    }
+
+    /**
+     * Try base slug, then base-suffix, then return base (WP will append -2, -3).
+     *
+     * @param string $base      Sanitized base slug.
+     * @param array  $data      Product or group data (for suffix field lookup).
+     * @param array  $opts      Plugin settings.
+     * @param bool   $is_group  Whether $data is a grouped product.
+     * @return string The resolved slug.
+     */
+    private function resolve_unique(string $base, array $data, array $opts, bool $is_group = false): string {
         if (!$this->slug_exists($base)) {
             return $base;
         }
 
+        $suffix_field = $opts['slug_suffix_field'] ?? '';
         if ($suffix_field !== '') {
-            $suffix_raw = $this->resolve_group_raw_value($group, $suffix_field);
+            $suffix_raw = $is_group
+                ? $this->resolve_group_raw_value($data, $suffix_field)
+                : $this->resolve_raw_value($data, $suffix_field);
             if ($suffix_raw !== '') {
                 $candidate = $base . '-' . sanitize_title($suffix_raw);
                 if ($candidate !== $base && $candidate !== '') {
@@ -92,14 +92,9 @@ class Skwirrel_WC_Sync_Slug_Resolver {
     }
 
     /**
-     * Resolve the base slug from a product field setting.
-     * Returns null for 'product_name' (let WP use title) or empty values.
+     * Sanitize a raw field value into a slug. Returns null if empty.
      */
-    private function resolve_base(array $product, string $field): ?string {
-        if ($field === 'product_name') {
-            return null;
-        }
-        $raw = $this->resolve_raw_value($product, $field);
+    private function sanitize_field(string $raw): ?string {
         if ($raw === '') {
             return null;
         }
@@ -145,5 +140,14 @@ class Skwirrel_WC_Sync_Slug_Resolver {
             $slug
         ));
         return (int) $count > 0;
+    }
+
+    /**
+     * Get plugin settings.
+     *
+     * @return array
+     */
+    private function get_settings(): array {
+        return get_option('skwirrel_wc_sync_settings', []);
     }
 }
