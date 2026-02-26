@@ -87,6 +87,9 @@ final class Skwirrel_WC_Sync_Plugin {
         require_once SKWIRREL_WC_SYNC_PLUGIN_DIR . 'includes/class-logger.php';
         require_once SKWIRREL_WC_SYNC_PLUGIN_DIR . 'includes/class-jsonrpc-client.php';
         require_once SKWIRREL_WC_SYNC_PLUGIN_DIR . 'includes/class-media-importer.php';
+        require_once SKWIRREL_WC_SYNC_PLUGIN_DIR . 'includes/class-etim-extractor.php';
+        require_once SKWIRREL_WC_SYNC_PLUGIN_DIR . 'includes/class-custom-class-extractor.php';
+        require_once SKWIRREL_WC_SYNC_PLUGIN_DIR . 'includes/class-attachment-handler.php';
         require_once SKWIRREL_WC_SYNC_PLUGIN_DIR . 'includes/class-product-mapper.php';
         require_once SKWIRREL_WC_SYNC_PLUGIN_DIR . 'includes/class-product-lookup.php';
         require_once SKWIRREL_WC_SYNC_PLUGIN_DIR . 'includes/class-sync-history.php';
