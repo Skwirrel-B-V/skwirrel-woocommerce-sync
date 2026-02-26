@@ -74,3 +74,15 @@ vendor/bin/phpcs
 # Auto-fix code style
 vendor/bin/phpcbf
 ```
+
+## Pre-Commit Quality Checks
+
+**All three checks must pass before every commit:**
+
+```bash
+vendor/bin/pest            # Unit tests
+vendor/bin/phpstan analyse # Static analysis
+vendor/bin/phpcs           # Code style
+```
+
+Run these after every change, before committing. Fix any issues before proceeding.

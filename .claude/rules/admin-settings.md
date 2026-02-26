@@ -41,7 +41,7 @@ Applies to `includes/class-admin-settings.php`.
 
 - Page slug: `skwirrel-pim-wp-sync` (submenu under WooCommerce)
 - Capability: `manage_woocommerce`
-- Language: all UI strings in Dutch, text domain `skwirrel-pim-wp-sync`
+- Language: English source text with translations, text domain `skwirrel-pim-wp-sync`
 - Tables: `.form-table` for settings, `.widefat` for results/history
 - Nonce: standard `_wpnonce` via `settings_fields()`
 - Background sync: fires AJAX to `wp_ajax_skwirrel_wc_sync_background`, gated by transient `skwirrel_wc_sync_bg_token`
@@ -49,6 +49,8 @@ Applies to `includes/class-admin-settings.php`.
 ## Sync Result Display
 
 - Last result: table with created/updated/failed/trashed/categories_removed rows
-- History: last 20 entries in `.widefat` table (timestamp, success, counts, trashed)
+- History: last 20 entries in `.widefat` table (timestamp, trigger, success, counts, trashed)
+- Trigger column: Manual, Scheduled, or Purge
 - Error row: red background for failed syncs
 - Trashed row: yellow background
+- Purge row: yellow background with purge details

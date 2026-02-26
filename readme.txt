@@ -4,7 +4,7 @@ Tags: woocommerce, sync, erp, pim, skwirrel
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.5.0
+Stable tag: 1.7.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -52,6 +52,20 @@ You can set an automatic schedule (hourly, twice daily, or daily) or synchronise
 The plugin uses the Skwirrel external ID as a unique key. Existing products are updated, not duplicated.
 
 == Changelog ==
+
+= 1.7.0 =
+* Slug settings moved to Settings → Permalinks page (alongside WooCommerce product permalinks)
+* New "Update slug on re-sync" option: update existing product slugs during sync
+* Sync history: new "Trigger" column showing Manual, Scheduled, or Purge
+* Purge (delete all) now adds an entry to sync history and preserves last sync status
+* Backward compatible slug settings migration from plugin settings to Permalinks page
+* New unit tests for slug resolver (16 tests)
+* Updated translations (all languages)
+
+= 1.6.0 =
+* Product slug configuration: choose slug source field (product name, SKU, manufacturer code, external ID, Skwirrel ID)
+* Slug suffix on duplicate: configurable fallback field appended when slug already exists
+* New class: Slug Resolver for deterministic product URL slugs
 
 = 1.5.0 =
 * Major refactoring: SyncService split from ~2200 lines into focused sub-classes

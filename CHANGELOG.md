@@ -2,6 +2,29 @@
 
 All notable changes to Skwirrel PIM Sync will be documented in this file.
 
+## [1.7.0]
+
+* Slug settings moved to Settings → Permalinks page (alongside WooCommerce product permalinks)
+* New "Update slug on re-sync" option: when enabled, existing product slugs are updated during sync (not just new products)
+* Slug resolver: exclude current product ID from duplicate check when updating existing products
+* New class: Permalink_Settings — dedicated settings on the WordPress Permalinks page
+* Backward compatible: migrates existing slug settings from plugin settings to new permalink option
+* Sync history: new "Trigger" column showing Manual, Scheduled, or Purge
+* Purge (delete all) now adds an entry to sync history with purge details
+* Purge no longer clears the last sync status — previous sync results remain visible
+* Purge rows highlighted in yellow in history table
+* New dedicated option: `skwirrel_wc_sync_permalinks` for slug configuration
+* Updated translation files (POT + nl_NL, nl_BE, de_DE, fr_FR, fr_BE, en_US, en_GB)
+* New unit tests: SlugResolverTest (16 tests covering all source fields, groups, backward compat)
+
+## [1.6.0]
+
+* Product slug configuration: choose slug source field (product name, SKU, manufacturer code, external ID, Skwirrel ID)
+* Slug suffix on duplicate: configurable fallback field appended when slug already exists
+* New class: Slug_Resolver — resolves product URL slugs based on admin settings
+* Slugs only set for new products to preserve existing URLs
+* Updated translation files with slug-related strings
+
 ## [1.5.0]
 
 * Major refactoring: SyncService split from ~2200 lines into focused sub-classes

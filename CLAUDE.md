@@ -4,7 +4,7 @@
 
 WordPress plugin that synchronises products from the Skwirrel ERP/PIM system into WooCommerce via a JSON-RPC 2.0 API. Written in PHP 8.1+, targeting WordPress 6.x and WooCommerce 8+ (tested up to 10.5).
 
-The plugin is Dutch-facing (UI strings in Dutch, text domain `skwirrel-pim-wp-sync`).
+All UI strings use English source text with translatable strings (text domain `skwirrel-pim-wp-sync`). Translations are available for nl_NL, nl_BE, de_DE, fr_FR, fr_BE, en_US, and en_GB.
 
 ## Architecture
 
@@ -67,7 +67,7 @@ Authentication: Bearer token or `X-Skwirrel-Api-Token` header.
 - **WooCommerce hooks**: Use standard WC filter/action naming conventions
 - **Templates**: Follow WooCommerce template override pattern (`templates/` dir, overridable in theme)
 - **Text domain**: `skwirrel-pim-wp-sync`
-- **Language**: UI text and comments are in Dutch
+- **Language**: English source text with translations (nl_NL, nl_BE, de_DE, fr_FR, fr_BE, en_US, en_GB)
 
 ## Important Post Meta Keys
 
@@ -133,6 +133,26 @@ Authentication: Bearer token or `X-Skwirrel-Api-Token` header.
 | `slug_source_field` | string | `product_name` | Primary field for product URL slug (product_name, internal_product_code, manufacturer_product_code, external_product_id, product_id) |
 | `slug_suffix_field` | string | `''` | Suffix field appended to slug when duplicate exists (same options minus product_name, or empty for WP auto-numbering) |
 | `update_slug_on_resync` | bool | `false` | When true, also update slugs for existing products during sync (not just new products) |
+
+## Versioning & Release
+
+- **Every change bumps the version** — update `Version:` in `skwirrel-pim-wp-sync.php` header and `SKWIRREL_WC_SYNC_VERSION` constant
+- **Each version is committed and tagged** — `git tag X.Y.Z` on the version bump commit
+- **Tag format**: `X.Y.Z` (no `v` prefix) — consistent with existing tags
+- **Update changelog**: add entries to both `CHANGELOG.md` and `readme.txt` (WordPress format)
+- **Update translations**: regenerate `.pot` file and update all `.po`/`.mo` files when strings change
+
+### Quality Checks (run before every commit)
+
+```bash
+# All three must pass before committing:
+vendor/bin/pest            # Unit tests
+vendor/bin/phpstan analyse # Static analysis (level 6)
+vendor/bin/phpcs           # Code style (WordPress standards)
+
+# Auto-fix code style issues:
+vendor/bin/phpcbf
+```
 
 ## Development Notes
 
