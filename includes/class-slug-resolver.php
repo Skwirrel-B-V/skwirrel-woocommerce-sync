@@ -2,7 +2,8 @@
 /**
  * Skwirrel → WooCommerce Slug Resolver.
  *
- * Resolves product URL slugs based on admin settings.
+ * Resolves product URL slugs based on permalink settings
+ * (Settings → Permalinks → Skwirrel product slugs).
  * Uses a two-level strategy: primary field as base slug,
  * optional suffix field when slug already exists.
  */
@@ -19,10 +20,11 @@ class Skwirrel_WC_Sync_Slug_Resolver {
      * Resolve slug for a product (from getProducts API data).
      * Returns null to let WordPress generate from title.
      *
-     * @param array $product Skwirrel product data.
+     * @param array    $product    Skwirrel product data.
+     * @param int|null $exclude_id WC product ID to exclude from duplicate check (for updates).
      * @return string|null Slug or null.
      */
-    public function resolve(array $product): ?string {
+    public function resolve(array $product, ?int $exclude_id = null): ?string {
         $opts = $this->get_settings();
         $primary = $opts['slug_source_field'] ?? 'product_name';
 
@@ -35,17 +37,18 @@ class Skwirrel_WC_Sync_Slug_Resolver {
             return null;
         }
 
-        return $this->resolve_unique($base, $product, $opts);
+        return $this->resolve_unique($base, $product, $opts, false, $exclude_id);
     }
 
     /**
      * Resolve slug for a grouped (variable) product.
      * Uses group-level field names (grouped_product_code, grouped_product_id).
      *
-     * @param array $group Grouped product data from API.
+     * @param array    $group      Grouped product data from API.
+     * @param int|null $exclude_id WC product ID to exclude from duplicate check (for updates).
      * @return string|null Slug or null.
      */
-    public function resolve_for_group(array $group): ?string {
+    public function resolve_for_group(array $group, ?int $exclude_id = null): ?string {
         $opts = $this->get_settings();
         $primary = $opts['slug_source_field'] ?? 'product_name';
 
@@ -58,20 +61,29 @@ class Skwirrel_WC_Sync_Slug_Resolver {
             return null;
         }
 
-        return $this->resolve_unique($base, $group, $opts, true);
+        return $this->resolve_unique($base, $group, $opts, true, $exclude_id);
+    }
+
+    /**
+     * Whether slugs should also be updated for existing products.
+     */
+    public function should_update_on_resync(): bool {
+        $opts = $this->get_settings();
+        return !empty($opts['update_slug_on_resync']);
     }
 
     /**
      * Try base slug, then base-suffix, then return base (WP will append -2, -3).
      *
-     * @param string $base      Sanitized base slug.
-     * @param array  $data      Product or group data (for suffix field lookup).
-     * @param array  $opts      Plugin settings.
-     * @param bool   $is_group  Whether $data is a grouped product.
+     * @param string   $base       Sanitized base slug.
+     * @param array    $data       Product or group data (for suffix field lookup).
+     * @param array    $opts       Plugin settings.
+     * @param bool     $is_group   Whether $data is a grouped product.
+     * @param int|null $exclude_id WC product ID to exclude from duplicate check.
      * @return string The resolved slug.
      */
-    private function resolve_unique(string $base, array $data, array $opts, bool $is_group = false): string {
-        if (!$this->slug_exists($base)) {
+    private function resolve_unique(string $base, array $data, array $opts, bool $is_group = false, ?int $exclude_id = null): string {
+        if (!$this->slug_exists($base, $exclude_id)) {
             return $base;
         }
 
@@ -131,23 +143,42 @@ class Skwirrel_WC_Sync_Slug_Resolver {
 
     /**
      * Check if a slug already exists for a non-trashed product.
+     *
+     * @param string   $slug       Slug to check.
+     * @param int|null $exclude_id Product ID to exclude (for updates on existing products).
      */
-    private function slug_exists(string $slug): bool {
+    private function slug_exists(string $slug, ?int $exclude_id = null): bool {
         global $wpdb;
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
-        $count = $wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_name = %s AND post_type = 'product' AND post_status != 'trash'",
-            $slug
-        ));
+
+        if ($exclude_id !== null) {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
+            $count = $wpdb->get_var($wpdb->prepare(
+                "SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_name = %s AND post_type = 'product' AND post_status != 'trash' AND ID != %d",
+                $slug,
+                $exclude_id
+            ));
+        } else {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
+            $count = $wpdb->get_var($wpdb->prepare(
+                "SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_name = %s AND post_type = 'product' AND post_status != 'trash'",
+                $slug
+            ));
+        }
+
         return (int) $count > 0;
     }
 
     /**
-     * Get plugin settings.
+     * Get slug settings from the dedicated permalink option.
      *
      * @return array
      */
     private function get_settings(): array {
+        if (class_exists('Skwirrel_WC_Sync_Permalink_Settings')) {
+            return Skwirrel_WC_Sync_Permalink_Settings::get_options();
+        }
+
+        // Fallback: read from main settings (backward compatibility).
         return get_option('skwirrel_wc_sync_settings', []);
     }
 }

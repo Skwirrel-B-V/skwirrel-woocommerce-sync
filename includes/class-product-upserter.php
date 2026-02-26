@@ -166,9 +166,10 @@ class Skwirrel_WC_Sync_Product_Upserter {
         $wc_product->set_sku($sku);
         $wc_product->set_name($this->mapper->get_name($product));
 
-        // Set slug only for new products to preserve existing URLs
-        if ($is_new) {
-            $slug = $this->slug_resolver->resolve($product);
+        // Set slug for new products; optionally update existing if enabled in permalink settings.
+        if ($is_new || $this->slug_resolver->should_update_on_resync()) {
+            $exclude_id = $is_new ? null : $wc_product->get_id();
+            $slug = $this->slug_resolver->resolve($product, $exclude_id);
             if ($slug !== null) {
                 $wc_product->set_slug($slug);
             }
@@ -655,9 +656,10 @@ class Skwirrel_WC_Sync_Product_Upserter {
         }
         $wc_product->set_name($name);
 
-        // Set slug only for new variable products to preserve existing URLs
-        if ($is_new) {
-            $slug = $this->slug_resolver->resolve_for_group($group);
+        // Set slug for new variable products; optionally update existing if enabled in permalink settings.
+        if ($is_new || $this->slug_resolver->should_update_on_resync()) {
+            $exclude_id = $is_new ? null : $wc_product->get_id();
+            $slug = $this->slug_resolver->resolve_for_group($group, $exclude_id);
             if ($slug !== null) {
                 $wc_product->set_slug($slug);
             }

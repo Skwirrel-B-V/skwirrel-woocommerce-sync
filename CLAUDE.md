@@ -25,7 +25,8 @@ Singleton-based class architecture without Composer autoloading — all classes 
 | `Skwirrel_WC_Sync_Product_Documents` | `includes/class-product-documents.php` | Frontend documents tab + admin meta box |
 | `Skwirrel_WC_Sync_Variation_Attributes_Fix` | `includes/class-variation-attributes-fix.php` | Patches WooCommerce variation attribute bugs |
 | `Skwirrel_WC_Sync_Delete_Protection` | `includes/class-delete-protection.php` | Delete warnings + force full sync after WC deletion |
-| `Skwirrel_WC_Sync_Slug_Resolver` | `includes/class-slug-resolver.php` | Resolves product URL slugs based on admin settings |
+| `Skwirrel_WC_Sync_Slug_Resolver` | `includes/class-slug-resolver.php` | Resolves product URL slugs based on permalink settings |
+| `Skwirrel_WC_Sync_Permalink_Settings` | `includes/class-permalink-settings.php` | Slug configuration on Settings → Permalinks page |
 
 ### Dependency Flow
 
@@ -39,6 +40,7 @@ Admin_Settings
         ├── Product_Upserter → Slug_Resolver
         └── JsonRpc_Client
 
+Permalink_Settings (standalone, Settings → Permalinks page)
 Product_Documents (standalone)
 Variation_Attributes_Fix (static, standalone)
 Delete_Protection (standalone)
@@ -88,6 +90,7 @@ Authentication: Bearer token or `X-Skwirrel-Api-Token` header.
 | `skwirrel_wc_sync_last_sync` | ISO timestamp of last sync run |
 | `skwirrel_wc_sync_last_result` | Result array of last sync (success, counts) |
 | `skwirrel_wc_sync_history` | Array of last 20 sync results |
+| `skwirrel_wc_sync_permalinks` | Slug settings (slug_source_field, slug_suffix_field, update_slug_on_resync) — configured via Settings → Permalinks |
 | `skwirrel_wc_sync_force_full_sync` | Flag: next scheduled sync runs as full sync (set after WC deletion) |
 
 ## Sync Flow
@@ -122,8 +125,14 @@ Authentication: Bearer token or `X-Skwirrel-Api-Token` header.
 | `include_languages` | array | — | Language codes to include in API calls |
 | `image_language` | string | — | Preferred language for image selection |
 | `verbose_logging` | bool | `false` | Enable verbose sync logging |
+
+### Permalink Settings (in `skwirrel_wc_sync_permalinks` option, configured via Settings → Permalinks)
+
+| Key | Type | Default | Purpose |
+|-----|------|---------|---------|
 | `slug_source_field` | string | `product_name` | Primary field for product URL slug (product_name, internal_product_code, manufacturer_product_code, external_product_id, product_id) |
 | `slug_suffix_field` | string | `''` | Suffix field appended to slug when duplicate exists (same options minus product_name, or empty for WP auto-numbering) |
+| `update_slug_on_resync` | bool | `false` | When true, also update slugs for existing products during sync (not just new products) |
 
 ## Development Notes
 

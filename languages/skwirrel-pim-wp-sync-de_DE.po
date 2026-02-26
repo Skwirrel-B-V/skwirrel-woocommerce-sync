@@ -3,7 +3,7 @@
 # This file is distributed under the GPL v2 or later.
 msgid ""
 msgstr ""
-"Project-Id-Version: Skwirrel PIM Sync 1.6.0\n"
+"Project-Id-Version: Skwirrel PIM Sync 1.7.0\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-02-26 12:00+0000\n"
 "PO-Revision-Date: 2026-02-26 12:00+0000\n"
@@ -13,7 +13,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"X-Generator: Skwirrel PIM Sync 1.6.0\n"
+"X-Generator: Skwirrel PIM Sync 1.7.0\n"
 "X-Domain: skwirrel-pim-wp-sync\n"
 
 #: skwirrel-pim-wp-sync.php
@@ -572,42 +572,62 @@ msgstr "Gesamten Synchronisierungsverlauf löschen?"
 msgid "Sync history deleted."
 msgstr "Synchronisierungsverlauf gelöscht."
 
-#: includes/class-admin-settings.php
+#: includes/class-permalink-settings.php
+msgid "Skwirrel product slugs"
+msgstr "Skwirrel Produkt-Slugs"
+
+#: includes/class-permalink-settings.php
+msgid "Configure how Skwirrel generates product URL slugs during sync."
+msgstr "Konfigurieren Sie, wie Skwirrel Produkt-URL-Slugs während der Synchronisierung generiert."
+
+#: includes/class-permalink-settings.php
 msgid "Slug source"
 msgstr "Slug-Quelle"
 
-#: includes/class-admin-settings.php
+#: includes/class-permalink-settings.php
 msgid "Product name (default)"
 msgstr "Produktname (Standard)"
 
-#: includes/class-admin-settings.php
+#: includes/class-permalink-settings.php
 msgid "Internal product code (SKU)"
 msgstr "Interner Artikelcode (SKU)"
 
-#: includes/class-admin-settings.php
+#: includes/class-permalink-settings.php
 msgid "Manufacturer product code"
 msgstr "Hersteller-Artikelcode"
 
-#: includes/class-admin-settings.php
+#: includes/class-permalink-settings.php
 msgid "External product ID"
 msgstr "Externe Produkt-ID"
 
-#: includes/class-admin-settings.php
+#: includes/class-permalink-settings.php
 msgid "Skwirrel product ID"
 msgstr "Skwirrel Produkt-ID"
 
-#: includes/class-admin-settings.php
+#: includes/class-permalink-settings.php
 msgid "The source field used as the base URL (slug) for new products."
 msgstr "Das Quellfeld, das als Basis-URL (Slug) für neue Produkte verwendet wird."
 
-#: includes/class-admin-settings.php
+#: includes/class-permalink-settings.php
 msgid "Slug suffix (on duplicate)"
 msgstr "Slug-Suffix (bei Duplikat)"
 
-#: includes/class-admin-settings.php
+#: includes/class-permalink-settings.php
 msgid "None — WordPress auto-numbers (-2, -3)"
 msgstr "Keine — WordPress nummeriert automatisch (-2, -3)"
 
-#: includes/class-admin-settings.php
+#: includes/class-permalink-settings.php
 msgid "If the slug already exists, this field is appended as a suffix. Existing slugs are not changed."
 msgstr "Wenn der Slug bereits existiert, wird dieses Feld als Suffix angehängt. Bestehende Slugs werden nicht geändert."
+
+#: includes/class-permalink-settings.php
+msgid "Update slug on re-sync"
+msgstr "Slug bei erneuter Synchronisierung aktualisieren"
+
+#: includes/class-permalink-settings.php
+msgid "Also update slugs for existing products during sync"
+msgstr "Auch Slugs für bestehende Produkte während der Synchronisierung aktualisieren"
+
+#: includes/class-permalink-settings.php
+msgid "When enabled, product slugs are updated on every sync based on the source field above. When disabled, only new products get a slug from Skwirrel."
+msgstr "Wenn aktiviert, werden Produkt-Slugs bei jeder Synchronisierung basierend auf dem obigen Quellfeld aktualisiert. Wenn deaktiviert, erhalten nur neue Produkte einen Slug von Skwirrel."

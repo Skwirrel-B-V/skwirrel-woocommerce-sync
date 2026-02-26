@@ -93,8 +93,14 @@ if (!function_exists('get_locale')) {
     }
 }
 
+// Global overrides for get_option() — tests can set $GLOBALS['_test_options'] to
+// override specific options for a single test run.
 if (!function_exists('get_option')) {
     function get_option(string $option, $default = false) {
+        // Allow per-test overrides.
+        if (isset($GLOBALS['_test_options'][$option])) {
+            return $GLOBALS['_test_options'][$option];
+        }
         // Return sensible defaults for test context.
         $options = [
             'skwirrel_wc_sync_settings' => [
@@ -131,6 +137,30 @@ if (!function_exists('wc_get_logger')) {
     }
 }
 
+// Stub $wpdb for slug_exists() and other direct queries.
+if (!isset($GLOBALS['wpdb'])) {
+    $GLOBALS['wpdb'] = new class {
+        public string $posts = 'wp_posts';
+        public string $postmeta = 'wp_postmeta';
+        public string $terms = 'wp_terms';
+        public string $term_taxonomy = 'wp_term_taxonomy';
+        public string $term_relationships = 'wp_term_relationships';
+        public string $termmeta = 'wp_termmeta';
+
+        public function prepare(string $query, ...$args): string {
+            return vsprintf(str_replace('%s', "'%s'", str_replace('%d', '%d', $query)), $args);
+        }
+
+        public function get_var(string $query) {
+            return '0'; // Default: slug does not exist.
+        }
+
+        public function get_results(string $query, $output = 'OBJECT') {
+            return [];
+        }
+    };
+}
+
 // Stub WC_Logger to prevent fatal errors in Logger constructor.
 if (!class_exists('WC_Logger')) {
     class WC_Logger {
@@ -145,3 +175,5 @@ require_once __DIR__ . '/../includes/class-etim-extractor.php';
 require_once __DIR__ . '/../includes/class-custom-class-extractor.php';
 require_once __DIR__ . '/../includes/class-attachment-handler.php';
 require_once __DIR__ . '/../includes/class-product-mapper.php';
+require_once __DIR__ . '/../includes/class-permalink-settings.php';
+require_once __DIR__ . '/../includes/class-slug-resolver.php';
