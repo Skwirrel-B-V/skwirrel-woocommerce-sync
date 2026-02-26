@@ -4,7 +4,7 @@ Tags: woocommerce, sync, erp, pim, skwirrel
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.7.0
+Stable tag: 1.7.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -52,6 +52,12 @@ You can set an automatic schedule (hourly, twice daily, or daily) or synchronise
 The plugin uses the Skwirrel external ID as a unique key. Existing products are updated, not duplicated.
 
 == Changelog ==
+
+= 1.7.1 =
+* Remove deprecated load_plugin_textdomain() call (WordPress 4.6+ auto-loads translations)
+* Fix unescaped SQL parameters in purge handler with proper $wpdb->prepare() placeholders
+* Fix direct database query caching warning in taxonomy manager
+* WordPress Plugin Check compliance improvements
 
 = 1.7.0 =
 * Slug settings moved to Settings → Permalinks page (alongside WooCommerce product permalinks)

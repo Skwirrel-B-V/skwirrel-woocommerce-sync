@@ -72,29 +72,37 @@ class Skwirrel_WC_Sync_Purge_Handler {
         }
 
         // --- Step 2: Find products and collect their category term IDs ---
-        $post_statuses = $permanent
-            ? "'publish','draft','pending','private','trash'"
-            : "'publish','draft','pending','private'";
+        $statuses = $permanent
+            ? ['publish', 'draft', 'pending', 'private', 'trash']
+            : ['publish', 'draft', 'pending', 'private'];
+        $status_placeholders = implode(', ', array_fill(0, count($statuses), '%s'));
 
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- bulk purge operation
         $product_ids = $wpdb->get_col(
-            "SELECT DISTINCT p.ID FROM {$wpdb->posts} p
-            INNER JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id
-            WHERE p.post_type IN ('product', 'product_variation')
-            AND p.post_status IN ({$post_statuses})
-            AND pm.meta_key IN ('_skwirrel_external_id', '_skwirrel_grouped_product_id')"
+            $wpdb->prepare(
+                "SELECT DISTINCT p.ID FROM {$wpdb->posts} p
+                INNER JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id
+                WHERE p.post_type IN ('product', 'product_variation')
+                AND p.post_status IN ({$status_placeholders})
+                AND pm.meta_key IN ('_skwirrel_external_id', '_skwirrel_grouped_product_id')",
+                ...$statuses
+            )
         );
 
         // Collect category term IDs assigned to Skwirrel products BEFORE deleting them.
         // This catches categories without _skwirrel_category_id meta (e.g. from _product_groups fallback).
         $skwirrel_cat_term_ids = [];
         if (!empty($product_ids)) {
-            $ids_csv = implode(',', array_map('intval', $product_ids));
+            $int_ids = array_map('intval', $product_ids);
+            $id_placeholders = implode(', ', array_fill(0, count($int_ids), '%d'));
             // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- bulk purge operation
             $skwirrel_cat_term_ids = $wpdb->get_col(
-                "SELECT DISTINCT tt.term_id FROM {$wpdb->term_relationships} tr
-                INNER JOIN {$wpdb->term_taxonomy} tt ON tr.term_taxonomy_id = tt.term_taxonomy_id AND tt.taxonomy = 'product_cat'
-                WHERE tr.object_id IN ({$ids_csv})" // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- IDs are cast to int above
+                $wpdb->prepare(
+                    "SELECT DISTINCT tt.term_id FROM {$wpdb->term_relationships} tr
+                    INNER JOIN {$wpdb->term_taxonomy} tt ON tr.term_taxonomy_id = tt.term_taxonomy_id AND tt.taxonomy = 'product_cat'
+                    WHERE tr.object_id IN ({$id_placeholders})",
+                    ...$int_ids
+                )
             );
         }
 

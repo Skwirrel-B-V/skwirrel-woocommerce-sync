@@ -2,6 +2,13 @@
 
 All notable changes to Skwirrel PIM Sync will be documented in this file.
 
+## [1.7.1]
+
+* Remove deprecated `load_plugin_textdomain()` call (WordPress 4.6+ auto-loads translations)
+* Fix unescaped SQL parameters in purge handler: use `$wpdb->prepare()` with placeholders
+* Fix direct database query caching warning in taxonomy manager
+* WordPress Plugin Check compliance improvements
+
 ## [1.7.0]
 
 * Slug settings moved to Settings → Permalinks page (alongside WooCommerce product permalinks)

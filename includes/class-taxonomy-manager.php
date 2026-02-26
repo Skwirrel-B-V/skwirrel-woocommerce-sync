@@ -182,13 +182,14 @@ class Skwirrel_WC_Sync_Taxonomy_Manager {
             $attr_id
         ));
         if ($current_label !== null && $current_label !== $label && preg_match('/^(EF|etim_)/i', $current_label)) {
-            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- attribute label update
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- attribute label update, cache cleared below
             $wpdb->update(
                 $wpdb->prefix . 'woocommerce_attribute_taxonomies',
                 ['attribute_label' => $label],
                 ['attribute_id' => $attr_id]
             );
             delete_transient('wc_attribute_taxonomies');
+            wp_cache_delete('woocommerce-attributes', 'woocommerce');
         }
     }
 
