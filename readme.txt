@@ -4,7 +4,7 @@ Tags: woocommerce, sync, erp, pim, skwirrel
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.4.0
+Stable tag: 1.5.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -52,6 +52,13 @@ You can set an automatic schedule (hourly, twice daily, or daily) or synchronise
 The plugin uses the Skwirrel external ID as a unique key. Existing products are updated, not duplicated.
 
 == Changelog ==
+
+= 1.5.0 =
+* Major refactoring: SyncService split from ~2200 lines into focused sub-classes
+* New classes: ProductUpserter, ProductLookup, SyncHistory, PurgeHandler, CategorySync, BrandSync, TaxonomyManager, EtimExtractor, CustomClassExtractor, AttachmentHandler
+* SyncService reduced to ~480 lines (pure orchestrator)
+* ProductMapper reduced to ~460 lines (delegates to focused sub-classes)
+* All existing public APIs preserved — no breaking changes
 
 = 1.4.0 =
 * Brand sync: Skwirrel brands synced into WooCommerce product_brand taxonomy

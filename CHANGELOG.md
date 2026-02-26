@@ -2,6 +2,23 @@
 
 All notable changes to Skwirrel PIM Sync will be documented in this file.
 
+## [1.5.0]
+
+* Major refactoring: SyncService split from ~2200 lines into focused sub-classes
+* New class: ProductUpserter — all product creation/update logic
+* New class: ProductLookup — database lookup methods for Skwirrel meta
+* New class: SyncHistory — sync result persistence and heartbeat management
+* New class: PurgeHandler — stale product/category cleanup
+* New class: CategorySync — category tree sync and per-product assignment
+* New class: BrandSync — brand taxonomy sync
+* New class: TaxonomyManager — ETIM and custom class taxonomy management
+* New class: EtimExtractor — ETIM attribute parsing from ProductMapper
+* New class: CustomClassExtractor — custom class feature handling from ProductMapper
+* New class: AttachmentHandler — image/document import from ProductMapper
+* SyncService reduced to ~480 lines (pure orchestrator)
+* ProductMapper reduced to ~460 lines (delegates to focused sub-classes)
+* All existing public APIs preserved — no breaking changes
+
 ## [1.4.0]
 
 * Brand sync: Skwirrel brands synced into WooCommerce product_brand taxonomy
