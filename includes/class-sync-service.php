@@ -36,7 +36,8 @@ class Skwirrel_WC_Sync_Service {
             $lookup,
             $this->category_sync,
             $this->brand_sync,
-            $this->taxonomy_manager
+            $this->taxonomy_manager,
+            new Skwirrel_WC_Sync_Slug_Resolver()
         );
     }
 

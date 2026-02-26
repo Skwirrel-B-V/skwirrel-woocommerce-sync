@@ -21,6 +21,7 @@ class Skwirrel_WC_Sync_Product_Upserter {
     private Skwirrel_WC_Sync_Category_Sync $category_sync;
     private Skwirrel_WC_Sync_Brand_Sync $brand_sync;
     private Skwirrel_WC_Sync_Taxonomy_Manager $taxonomy_manager;
+    private Skwirrel_WC_Sync_Slug_Resolver $slug_resolver;
 
     /**
      * Constructor.
@@ -31,6 +32,7 @@ class Skwirrel_WC_Sync_Product_Upserter {
      * @param Skwirrel_WC_Sync_Category_Sync    $category_sync   Category sync handler.
      * @param Skwirrel_WC_Sync_Brand_Sync       $brand_sync      Brand sync handler.
      * @param Skwirrel_WC_Sync_Taxonomy_Manager $taxonomy_manager Taxonomy/attribute manager.
+     * @param Skwirrel_WC_Sync_Slug_Resolver    $slug_resolver   Product slug resolver.
      */
     public function __construct(
         Skwirrel_WC_Sync_Logger $logger,
@@ -38,7 +40,8 @@ class Skwirrel_WC_Sync_Product_Upserter {
         Skwirrel_WC_Sync_Product_Lookup $lookup,
         Skwirrel_WC_Sync_Category_Sync $category_sync,
         Skwirrel_WC_Sync_Brand_Sync $brand_sync,
-        Skwirrel_WC_Sync_Taxonomy_Manager $taxonomy_manager
+        Skwirrel_WC_Sync_Taxonomy_Manager $taxonomy_manager,
+        Skwirrel_WC_Sync_Slug_Resolver $slug_resolver = new Skwirrel_WC_Sync_Slug_Resolver()
     ) {
         $this->logger = $logger;
         $this->mapper = $mapper;
@@ -46,6 +49,7 @@ class Skwirrel_WC_Sync_Product_Upserter {
         $this->category_sync = $category_sync;
         $this->brand_sync = $brand_sync;
         $this->taxonomy_manager = $taxonomy_manager;
+        $this->slug_resolver = $slug_resolver;
     }
 
     /**
@@ -161,6 +165,15 @@ class Skwirrel_WC_Sync_Product_Upserter {
 
         $wc_product->set_sku($sku);
         $wc_product->set_name($this->mapper->get_name($product));
+
+        // Set slug only for new products to preserve existing URLs
+        if ($is_new) {
+            $slug = $this->slug_resolver->resolve($product);
+            if ($slug !== null) {
+                $wc_product->set_slug($slug);
+            }
+        }
+
         $wc_product->set_short_description($this->mapper->get_short_description($product));
         $wc_product->set_description($this->mapper->get_long_description($product));
         $wc_product->set_status($this->mapper->get_status($product));
@@ -641,6 +654,15 @@ class Skwirrel_WC_Sync_Product_Upserter {
             $wc_product->set_sku($group_sku);
         }
         $wc_product->set_name($name);
+
+        // Set slug only for new variable products to preserve existing URLs
+        if ($is_new) {
+            $slug = $this->slug_resolver->resolve_for_group($group);
+            if ($slug !== null) {
+                $wc_product->set_slug($slug);
+            }
+        }
+
         $wc_product->set_status(!empty($group['product_trashed_on']) ? 'trash' : 'publish');
         $wc_product->set_catalog_visibility('visible');
         $wc_product->set_stock_status('instock'); // Parent must be in stock

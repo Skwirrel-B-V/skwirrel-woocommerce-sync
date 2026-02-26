@@ -25,6 +25,7 @@ Singleton-based class architecture without Composer autoloading — all classes 
 | `Skwirrel_WC_Sync_Product_Documents` | `includes/class-product-documents.php` | Frontend documents tab + admin meta box |
 | `Skwirrel_WC_Sync_Variation_Attributes_Fix` | `includes/class-variation-attributes-fix.php` | Patches WooCommerce variation attribute bugs |
 | `Skwirrel_WC_Sync_Delete_Protection` | `includes/class-delete-protection.php` | Delete warnings + force full sync after WC deletion |
+| `Skwirrel_WC_Sync_Slug_Resolver` | `includes/class-slug-resolver.php` | Resolves product URL slugs based on admin settings |
 
 ### Dependency Flow
 
@@ -35,6 +36,7 @@ Admin_Settings
   └── Sync_Service
         ├── Logger
         ├── Product_Mapper → Media_Importer → Logger
+        ├── Product_Upserter → Slug_Resolver
         └── JsonRpc_Client
 
 Product_Documents (standalone)
@@ -120,6 +122,8 @@ Authentication: Bearer token or `X-Skwirrel-Api-Token` header.
 | `include_languages` | array | — | Language codes to include in API calls |
 | `image_language` | string | — | Preferred language for image selection |
 | `verbose_logging` | bool | `false` | Enable verbose sync logging |
+| `slug_source_field` | string | `product_name` | Primary field for product URL slug (product_name, internal_product_code, manufacturer_product_code, external_product_id, product_id) |
+| `slug_suffix_field` | string | `''` | Suffix field appended to slug when duplicate exists (same options minus product_name, or empty for WP auto-numbering) |
 
 ## Development Notes
 
