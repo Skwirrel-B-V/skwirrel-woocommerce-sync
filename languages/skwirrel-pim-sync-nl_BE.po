@@ -1,4 +1,4 @@
-# Translation file for Skwirrel PIM Sync - Nederlands (Nederland)
+# Translation file for Skwirrel PIM Sync - Nederlands (België)
 # Copyright (C) 2024–2026 Skwirrel Sync
 # This file is distributed under the GPL v2 or later.
 msgid ""
@@ -8,23 +8,23 @@ msgstr ""
 "POT-Creation-Date: 2026-02-26 12:00+0000\n"
 "PO-Revision-Date: 2026-02-26 12:00+0000\n"
 "Last-Translator: Skwirrel Sync <info@skwirrel.eu>\n"
-"Language-Team: Nederlands (Nederland)\n"
-"Language: nl_NL\n"
+"Language-Team: Nederlands (België)\n"
+"Language: nl_BE\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "X-Generator: Skwirrel PIM Sync 1.7.0\n"
-"X-Domain: skwirrel-pim-wp-sync\n"
+"X-Domain: skwirrel-pim-sync\n"
 
-#: skwirrel-pim-wp-sync.php
+#: skwirrel-pim-sync.php
 msgid "Skwirrel PIM Sync requires WooCommerce to function."
 msgstr "Skwirrel PIM Sync vereist WooCommerce om te functioneren."
 
-#: skwirrel-pim-wp-sync.php
+#: skwirrel-pim-sync.php
 msgid "Install WooCommerce"
 msgstr "WooCommerce installeren"
 
-#: skwirrel-pim-wp-sync.php
+#: skwirrel-pim-sync.php
 msgid "WooCommerce is required. <a href=\"%1$s\">Install WooCommerce</a> or <a href=\"%2$s\">activate WooCommerce</a>."
 msgstr "WooCommerce is vereist. <a href=\"%1$s\">Installeer WooCommerce</a> of <a href=\"%2$s\">activeer WooCommerce</a>."
 

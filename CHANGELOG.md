@@ -2,6 +2,14 @@
 
 All notable changes to Skwirrel PIM Sync will be documented in this file.
 
+## [1.8.0]
+
+* Rename plugin slug from `skwirrel-pim-wp-sync` to `skwirrel-pim-sync` (WordPress.org restricts "wp" in plugin slugs)
+* Update text domain, Action Scheduler group, logger source, and admin page slug
+* Rename main plugin file and all language files to match new slug
+* Add activation cleanup for old Action Scheduler group from pre-1.8.0
+* Existing settings, synced products, and translations are fully preserved
+
 ## [1.7.1]
 
 * Remove deprecated `load_plugin_textdomain()` call (WordPress 4.6+ auto-loads translations)

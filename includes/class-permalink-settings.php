@@ -69,14 +69,14 @@ class Skwirrel_WC_Sync_Permalink_Settings {
     public function register_settings(): void {
         add_settings_section(
             'skwirrel-product-permalink',
-            __('Skwirrel product slugs', 'skwirrel-pim-wp-sync'),
+            __('Skwirrel product slugs', 'skwirrel-pim-sync'),
             [$this, 'render_section'],
             'permalink'
         );
 
         add_settings_field(
             'skwirrel_slug_source_field',
-            __('Slug source', 'skwirrel-pim-wp-sync'),
+            __('Slug source', 'skwirrel-pim-sync'),
             [$this, 'render_slug_source_field'],
             'permalink',
             'skwirrel-product-permalink'
@@ -84,7 +84,7 @@ class Skwirrel_WC_Sync_Permalink_Settings {
 
         add_settings_field(
             'skwirrel_slug_suffix_field',
-            __('Slug suffix (on duplicate)', 'skwirrel-pim-wp-sync'),
+            __('Slug suffix (on duplicate)', 'skwirrel-pim-sync'),
             [$this, 'render_slug_suffix_field'],
             'permalink',
             'skwirrel-product-permalink'
@@ -92,7 +92,7 @@ class Skwirrel_WC_Sync_Permalink_Settings {
 
         add_settings_field(
             'skwirrel_update_slug_on_resync',
-            __('Update slug on re-sync', 'skwirrel-pim-wp-sync'),
+            __('Update slug on re-sync', 'skwirrel-pim-sync'),
             [$this, 'render_update_slug_on_resync_field'],
             'permalink',
             'skwirrel-product-permalink'
@@ -103,7 +103,7 @@ class Skwirrel_WC_Sync_Permalink_Settings {
      * Section description.
      */
     public function render_section(): void {
-        echo '<p>' . esc_html__('Configure how Skwirrel generates product URL slugs during sync.', 'skwirrel-pim-wp-sync') . '</p>';
+        echo '<p>' . esc_html__('Configure how Skwirrel generates product URL slugs during sync.', 'skwirrel-pim-sync') . '</p>';
     }
 
     /**
@@ -114,13 +114,13 @@ class Skwirrel_WC_Sync_Permalink_Settings {
         $value = $opts['slug_source_field'];
         ?>
         <select id="skwirrel_slug_source_field" name="skwirrel_slug_source_field">
-            <option value="product_name" <?php selected($value, 'product_name'); ?>><?php esc_html_e('Product name (default)', 'skwirrel-pim-wp-sync'); ?></option>
-            <option value="internal_product_code" <?php selected($value, 'internal_product_code'); ?>><?php esc_html_e('Internal product code (SKU)', 'skwirrel-pim-wp-sync'); ?></option>
-            <option value="manufacturer_product_code" <?php selected($value, 'manufacturer_product_code'); ?>><?php esc_html_e('Manufacturer product code', 'skwirrel-pim-wp-sync'); ?></option>
-            <option value="external_product_id" <?php selected($value, 'external_product_id'); ?>><?php esc_html_e('External product ID', 'skwirrel-pim-wp-sync'); ?></option>
-            <option value="product_id" <?php selected($value, 'product_id'); ?>><?php esc_html_e('Skwirrel product ID', 'skwirrel-pim-wp-sync'); ?></option>
+            <option value="product_name" <?php selected($value, 'product_name'); ?>><?php esc_html_e('Product name (default)', 'skwirrel-pim-sync'); ?></option>
+            <option value="internal_product_code" <?php selected($value, 'internal_product_code'); ?>><?php esc_html_e('Internal product code (SKU)', 'skwirrel-pim-sync'); ?></option>
+            <option value="manufacturer_product_code" <?php selected($value, 'manufacturer_product_code'); ?>><?php esc_html_e('Manufacturer product code', 'skwirrel-pim-sync'); ?></option>
+            <option value="external_product_id" <?php selected($value, 'external_product_id'); ?>><?php esc_html_e('External product ID', 'skwirrel-pim-sync'); ?></option>
+            <option value="product_id" <?php selected($value, 'product_id'); ?>><?php esc_html_e('Skwirrel product ID', 'skwirrel-pim-sync'); ?></option>
         </select>
-        <p class="description"><?php esc_html_e('The source field used as the base URL (slug) for new products.', 'skwirrel-pim-wp-sync'); ?></p>
+        <p class="description"><?php esc_html_e('The source field used as the base URL (slug) for new products.', 'skwirrel-pim-sync'); ?></p>
         <?php
     }
 
@@ -132,13 +132,13 @@ class Skwirrel_WC_Sync_Permalink_Settings {
         $value = $opts['slug_suffix_field'];
         ?>
         <select id="skwirrel_slug_suffix_field" name="skwirrel_slug_suffix_field">
-            <option value="" <?php selected($value, ''); ?>><?php esc_html_e('None — WordPress auto-numbers (-2, -3)', 'skwirrel-pim-wp-sync'); ?></option>
-            <option value="internal_product_code" <?php selected($value, 'internal_product_code'); ?>><?php esc_html_e('Internal product code (SKU)', 'skwirrel-pim-wp-sync'); ?></option>
-            <option value="manufacturer_product_code" <?php selected($value, 'manufacturer_product_code'); ?>><?php esc_html_e('Manufacturer product code', 'skwirrel-pim-wp-sync'); ?></option>
-            <option value="external_product_id" <?php selected($value, 'external_product_id'); ?>><?php esc_html_e('External product ID', 'skwirrel-pim-wp-sync'); ?></option>
-            <option value="product_id" <?php selected($value, 'product_id'); ?>><?php esc_html_e('Skwirrel product ID', 'skwirrel-pim-wp-sync'); ?></option>
+            <option value="" <?php selected($value, ''); ?>><?php esc_html_e('None — WordPress auto-numbers (-2, -3)', 'skwirrel-pim-sync'); ?></option>
+            <option value="internal_product_code" <?php selected($value, 'internal_product_code'); ?>><?php esc_html_e('Internal product code (SKU)', 'skwirrel-pim-sync'); ?></option>
+            <option value="manufacturer_product_code" <?php selected($value, 'manufacturer_product_code'); ?>><?php esc_html_e('Manufacturer product code', 'skwirrel-pim-sync'); ?></option>
+            <option value="external_product_id" <?php selected($value, 'external_product_id'); ?>><?php esc_html_e('External product ID', 'skwirrel-pim-sync'); ?></option>
+            <option value="product_id" <?php selected($value, 'product_id'); ?>><?php esc_html_e('Skwirrel product ID', 'skwirrel-pim-sync'); ?></option>
         </select>
-        <p class="description"><?php esc_html_e('If the slug already exists, this field is appended as a suffix. Existing slugs are not changed.', 'skwirrel-pim-wp-sync'); ?></p>
+        <p class="description"><?php esc_html_e('If the slug already exists, this field is appended as a suffix. Existing slugs are not changed.', 'skwirrel-pim-sync'); ?></p>
         <?php
     }
 
@@ -151,9 +151,9 @@ class Skwirrel_WC_Sync_Permalink_Settings {
         ?>
         <label>
             <input type="checkbox" name="skwirrel_update_slug_on_resync" value="1" <?php checked($checked); ?> />
-            <?php esc_html_e('Also update slugs for existing products during sync', 'skwirrel-pim-wp-sync'); ?>
+            <?php esc_html_e('Also update slugs for existing products during sync', 'skwirrel-pim-sync'); ?>
         </label>
-        <p class="description"><?php esc_html_e('When enabled, product slugs are updated on every sync based on the source field above. When disabled, only new products get a slug from Skwirrel.', 'skwirrel-pim-wp-sync'); ?></p>
+        <p class="description"><?php esc_html_e('When enabled, product slugs are updated on every sync based on the source field above. When disabled, only new products get a slug from Skwirrel.', 'skwirrel-pim-sync'); ?></p>
         <?php
     }
 

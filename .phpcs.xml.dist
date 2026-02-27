@@ -3,7 +3,7 @@
     <description>Code style rules for Skwirrel PIM Sync plugin.</description>
 
     <!-- Scan these files -->
-    <file>skwirrel-pim-wp-sync.php</file>
+    <file>skwirrel-pim-sync.php</file>
     <file>includes/</file>
 
     <!-- Exclude vendor -->
@@ -21,7 +21,7 @@
     <rule ref="WordPress.WP.I18n">
         <properties>
             <property name="text_domain" type="array">
-                <element value="skwirrel-pim-wp-sync"/>
+                <element value="skwirrel-pim-sync"/>
             </property>
         </properties>
     </rule>

@@ -5,7 +5,7 @@ Vraag de gebruiker om:
 - Context (optioneel, voor msgctxt)
 
 Voeg de string dan toe aan:
-1. `languages/skwirrel-pim-wp-sync.pot` (template)
+1. `languages/skwirrel-pim-sync.pot` (template)
 2. Alle .po bestanden in `languages/`:
    - `nl_NL.po` en `nl_BE.po` — Nederlandse vertaling (vaak identiek aan msgid)
    - `en_US.po` en `en_GB.po` — Engelse vertaling

@@ -3,7 +3,7 @@
  * Plugin Name: Skwirrel PIM Sync
  * Plugin URI: https://github.com/Skwirrel-B-V/skwirrel-pim-wp-sync
  * Description: Sync plugin for Skwirrel PIM via Skwirrel JSON-RPC API to WooCommerce.
- * Version: 1.7.1
+ * Version: 1.8.0
  * Author: Skwirrel B.V.
  * Author URI: https://skwirrel.eu
  * Requires at least: 6.0
@@ -11,7 +11,7 @@
  * WC requires at least: 8.0
  * WC tested up to: 10.5
  * License: GPL v2 or later
- * Text Domain: skwirrel-pim-wp-sync
+ * Text Domain: skwirrel-pim-sync
  * Requires Plugins: woocommerce
  */
 
@@ -21,7 +21,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('SKWIRREL_WC_SYNC_VERSION', '1.7.1');
+define('SKWIRREL_WC_SYNC_VERSION', '1.8.0');
 define('SKWIRREL_WC_SYNC_PLUGIN_FILE', __FILE__);
 define('SKWIRREL_WC_SYNC_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('SKWIRREL_WC_SYNC_PLUGIN_URL', plugin_dir_url(__FILE__));
@@ -38,12 +38,17 @@ register_activation_hook(__FILE__, function (): void {
     if (!class_exists('WooCommerce') && !in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_option('active_plugins', [])), true)) {
         deactivate_plugins(plugin_basename(__FILE__));
         wp_die(
-            esc_html__('Skwirrel PIM Sync requires WooCommerce to function.', 'skwirrel-pim-wp-sync')
+            esc_html__('Skwirrel PIM Sync requires WooCommerce to function.', 'skwirrel-pim-sync')
             . ' <a href="' . esc_url(admin_url('plugin-install.php?s=woocommerce&tab=search&type=term')) . '">'
-            . esc_html__('Install WooCommerce', 'skwirrel-pim-wp-sync') . '</a>.',
+            . esc_html__('Install WooCommerce', 'skwirrel-pim-sync') . '</a>.',
             'Plugin Activation Error',
             ['back_link' => true]
         );
+    }
+
+    // Clean up old Action Scheduler group from pre-1.8.0 slug rename
+    if (function_exists('as_unschedule_all_actions')) {
+        as_unschedule_all_actions('skwirrel_wc_sync_run', [], 'skwirrel-pim-wp-sync');
     }
 
     require_once SKWIRREL_WC_SYNC_PLUGIN_DIR . 'includes/class-action-scheduler.php';
@@ -122,7 +127,7 @@ final class Skwirrel_WC_Sync_Plugin {
                 printf(
                     wp_kses(
                         /* translators: %1$s = install URL, %2$s = activate URL */
-                        __('WooCommerce is required. <a href="%1$s">Install WooCommerce</a> or <a href="%2$s">activate WooCommerce</a>.', 'skwirrel-pim-wp-sync'),
+                        __('WooCommerce is required. <a href="%1$s">Install WooCommerce</a> or <a href="%2$s">activate WooCommerce</a>.', 'skwirrel-pim-sync'),
                         ['a' => ['href' => []]]
                     ),
                     esc_url($install_url),

@@ -14,17 +14,17 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "X-Generator: Skwirrel PIM Sync 1.7.0\n"
-"X-Domain: skwirrel-pim-wp-sync\n"
+"X-Domain: skwirrel-pim-sync\n"
 
-#: skwirrel-pim-wp-sync.php
+#: skwirrel-pim-sync.php
 msgid "Skwirrel PIM Sync requires WooCommerce to function."
 msgstr "Skwirrel PIM Sync nécessite WooCommerce pour fonctionner."
 
-#: skwirrel-pim-wp-sync.php
+#: skwirrel-pim-sync.php
 msgid "Install WooCommerce"
 msgstr "Installer WooCommerce"
 
-#: skwirrel-pim-wp-sync.php
+#: skwirrel-pim-sync.php
 msgid "WooCommerce is required. <a href=\"%1$s\">Install WooCommerce</a> or <a href=\"%2$s\">activate WooCommerce</a>."
 msgstr "WooCommerce est requis. <a href=\"%1$s\">Installer WooCommerce</a> ou <a href=\"%2$s\">activer WooCommerce</a>."
 

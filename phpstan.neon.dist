@@ -1,7 +1,7 @@
 parameters:
   level: 6
   paths:
-    - skwirrel-pim-wp-sync.php
+    - skwirrel-pim-sync.php
     - includes/
   excludePaths:
     - vendor/

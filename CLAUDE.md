@@ -4,7 +4,7 @@
 
 WordPress plugin that synchronises products from the Skwirrel ERP/PIM system into WooCommerce via a JSON-RPC 2.0 API. Written in PHP 8.1+, targeting WordPress 6.x and WooCommerce 8+ (tested up to 10.5).
 
-All UI strings use English source text with translatable strings (text domain `skwirrel-pim-wp-sync`). Translations are available for nl_NL, nl_BE, de_DE, fr_FR, fr_BE, en_US, and en_GB.
+All UI strings use English source text with translatable strings (text domain `skwirrel-pim-sync`). Translations are available for nl_NL, nl_BE, de_DE, fr_FR, fr_BE, en_US, and en_GB.
 
 ## Architecture
 
@@ -14,7 +14,7 @@ Singleton-based class architecture without Composer autoloading — all classes 
 
 | Class | File | Role |
 |-------|------|------|
-| `Skwirrel_WC_Sync_Plugin` | `skwirrel-pim-wp-sync.php` | Bootstrap, dependency loading, hook registration |
+| `Skwirrel_WC_Sync_Plugin` | `skwirrel-pim-sync.php` | Bootstrap, dependency loading, hook registration |
 | `Skwirrel_WC_Sync_Admin_Settings` | `includes/class-admin-settings.php` | Admin UI, settings persistence, manual sync trigger |
 | `Skwirrel_WC_Sync_Service` | `includes/class-sync-service.php` | Core sync orchestrator — fetches, maps, upserts products |
 | `Skwirrel_WC_Sync_Product_Mapper` | `includes/class-product-mapper.php` | Translates Skwirrel API data to WooCommerce field values |
@@ -63,10 +63,10 @@ Authentication: Bearer token or `X-Skwirrel-Api-Token` header.
 - **Singletons**: Most classes use `::instance()` pattern with private constructors
 - **No autoloader**: All includes are manual `require_once` in the bootstrap
 - **Settings storage**: Main settings in `skwirrel_wc_sync_settings` option; auth token stored separately in `skwirrel_wc_sync_auth_token`
-- **Logging**: Always use `Skwirrel_WC_Sync_Logger` (wraps `wc_get_logger()`, source `skwirrel-pim-wp-sync`)
+- **Logging**: Always use `Skwirrel_WC_Sync_Logger` (wraps `wc_get_logger()`, source `skwirrel-pim-sync`)
 - **WooCommerce hooks**: Use standard WC filter/action naming conventions
 - **Templates**: Follow WooCommerce template override pattern (`templates/` dir, overridable in theme)
-- **Text domain**: `skwirrel-pim-wp-sync`
+- **Text domain**: `skwirrel-pim-sync`
 - **Language**: English source text with translations (nl_NL, nl_BE, de_DE, fr_FR, fr_BE, en_US, en_GB)
 
 ## Important Post Meta Keys
@@ -136,7 +136,7 @@ Authentication: Bearer token or `X-Skwirrel-Api-Token` header.
 
 ## Versioning & Release
 
-- **Every change bumps the version** — update `Version:` in `skwirrel-pim-wp-sync.php` header and `SKWIRREL_WC_SYNC_VERSION` constant
+- **Every change bumps the version** — update `Version:` in `skwirrel-pim-sync.php` header and `SKWIRREL_WC_SYNC_VERSION` constant
 - **Each version is committed and tagged** — `git tag X.Y.Z` on the version bump commit
 - **Tag format**: `X.Y.Z` (no `v` prefix) — consistent with existing tags
 - **Update changelog**: add entries to both `CHANGELOG.md` and `readme.txt` (WordPress format)

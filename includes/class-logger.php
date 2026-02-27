@@ -13,7 +13,7 @@ if (!defined('ABSPATH')) {
 
 class Skwirrel_WC_Sync_Logger {
 
-    private const LOG_SOURCE = 'skwirrel-pim-wp-sync';
+    private const LOG_SOURCE = 'skwirrel-pim-sync';
     private ?WC_Logger $wc_logger = null;
 
     public function __construct() {

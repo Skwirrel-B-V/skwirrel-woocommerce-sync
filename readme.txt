@@ -4,7 +4,7 @@ Tags: woocommerce, sync, erp, pim, skwirrel
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.7.1
+Stable tag: 1.8.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -31,7 +31,7 @@ Skwirrel PIM Sync connects your WooCommerce webshop to the Skwirrel ERP/PIM syst
 
 == Installation ==
 
-1. Upload the plugin files to `/wp-content/plugins/skwirrel-pim-wp-sync/`, or install the plugin directly through the WordPress plugin screen.
+1. Upload the plugin files to `/wp-content/plugins/skwirrel-pim-sync/`, or install the plugin directly through the WordPress plugin screen.
 2. Activate the plugin through the 'Plugins' screen in WordPress.
 3. Navigate to WooCommerce > Skwirrel Sync to configure the plugin.
 4. Enter your Skwirrel API URL and authentication token.
@@ -52,6 +52,13 @@ You can set an automatic schedule (hourly, twice daily, or daily) or synchronise
 The plugin uses the Skwirrel external ID as a unique key. Existing products are updated, not duplicated.
 
 == Changelog ==
+
+= 1.8.0 =
+* Rename plugin slug from `skwirrel-pim-wp-sync` to `skwirrel-pim-sync` (WordPress.org restricts "wp" in plugin slugs)
+* Update text domain, Action Scheduler group, logger source, and admin page slug
+* Rename main plugin file and all language files to match new slug
+* Add activation cleanup for old Action Scheduler group from pre-1.8.0
+* Existing settings, synced products, and translations are fully preserved
 
 = 1.7.1 =
 * Remove deprecated load_plugin_textdomain() call (WordPress 4.6+ auto-loads translations)

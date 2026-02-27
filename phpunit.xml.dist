@@ -14,7 +14,7 @@
     <source>
         <include>
             <directory>includes</directory>
-            <file>skwirrel-pim-wp-sync.php</file>
+            <file>skwirrel-pim-sync.php</file>
         </include>
     </source>
 </phpunit>

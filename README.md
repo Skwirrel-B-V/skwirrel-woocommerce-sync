@@ -10,7 +10,7 @@
 
 ## Installatie
 
-1. Kopieer de map `skwirrel-pim-wp-sync` naar `wp-content/plugins/`
+1. Kopieer de map `skwirrel-pim-sync` naar `wp-content/plugins/`
 2. Activeer de plugin in **Plugins** → **Geïnstalleerde plugins**
 3. Ga naar **WooCommerce** → **Skwirrel Sync** en configureer de instellingen
 
@@ -92,7 +92,7 @@ De waarschuwing is uit te schakelen via de instelling "Verwijderwaarschuwing ton
 ## Logging
 
 De plugin gebruikt de WooCommerce logger (`wc_get_logger`). Logs zijn te vinden in:
-- **WooCommerce** → **Status** → **Logs** → bron: `skwirrel-pim-wp-sync`
+- **WooCommerce** → **Status** → **Logs** → bron: `skwirrel-pim-sync`
 
 ## Vertalingen
 

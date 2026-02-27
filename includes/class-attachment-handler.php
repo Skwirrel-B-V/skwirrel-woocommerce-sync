@@ -219,11 +219,11 @@ class Skwirrel_WC_Sync_Attachment_Handler {
     /** Document type codes from Skwirrel: MAN=Manual, DAT=Datasheet, etc. */
     private function get_document_type_label(string $code): string {
         $labels = [
-            'MAN' => __('Manual', 'skwirrel-pim-wp-sync'),
-            'DAT' => __('Datasheet', 'skwirrel-pim-wp-sync'),
-            'CER' => __('Certificate', 'skwirrel-pim-wp-sync'),
-            'WAR' => __('Warranty', 'skwirrel-pim-wp-sync'),
-            'OTV' => __('Other document', 'skwirrel-pim-wp-sync'),
+            'MAN' => __('Manual', 'skwirrel-pim-sync'),
+            'DAT' => __('Datasheet', 'skwirrel-pim-sync'),
+            'CER' => __('Certificate', 'skwirrel-pim-sync'),
+            'WAR' => __('Warranty', 'skwirrel-pim-sync'),
+            'OTV' => __('Other document', 'skwirrel-pim-sync'),
         ];
         return $labels[strtoupper($code)] ?? $code;
     }

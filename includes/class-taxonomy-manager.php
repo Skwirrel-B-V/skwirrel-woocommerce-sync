@@ -132,7 +132,7 @@ class Skwirrel_WC_Sync_Taxonomy_Manager {
                 $wpdb->prefix . 'woocommerce_attribute_taxonomies',
                 [
                     'attribute_name' => 'variant',
-                    'attribute_label' => __('Variant', 'skwirrel-pim-wp-sync'),
+                    'attribute_label' => __('Variant', 'skwirrel-pim-sync'),
                     'attribute_type' => 'select',
                     'attribute_orderby' => 'menu_order',
                     'attribute_public' => 1,
@@ -141,7 +141,7 @@ class Skwirrel_WC_Sync_Taxonomy_Manager {
             delete_transient('wc_attribute_taxonomies');
         }
         register_taxonomy('pa_variant', 'product', [
-            'labels' => ['name' => __('Variant', 'skwirrel-pim-wp-sync')],
+            'labels' => ['name' => __('Variant', 'skwirrel-pim-sync')],
             'hierarchical' => false,
             'show_ui' => true,
             'query_var' => true,
@@ -265,17 +265,17 @@ class Skwirrel_WC_Sync_Taxonomy_Manager {
                 'name' => $label,
                 'singular_name' => $label,
                 /* translators: %s = attribute label */
-                'search_items' => sprintf(__('Search %s', 'skwirrel-pim-wp-sync'), $label),
+                'search_items' => sprintf(__('Search %s', 'skwirrel-pim-sync'), $label),
                 /* translators: %s = attribute label */
-                'all_items' => sprintf(__('All %s', 'skwirrel-pim-wp-sync'), $label),
+                'all_items' => sprintf(__('All %s', 'skwirrel-pim-sync'), $label),
                 /* translators: %s = attribute label */
-                'edit_item' => sprintf(__('Edit %s', 'skwirrel-pim-wp-sync'), $label),
+                'edit_item' => sprintf(__('Edit %s', 'skwirrel-pim-sync'), $label),
                 /* translators: %s = attribute label */
-                'update_item' => sprintf(__('Update %s', 'skwirrel-pim-wp-sync'), $label),
+                'update_item' => sprintf(__('Update %s', 'skwirrel-pim-sync'), $label),
                 /* translators: %s = attribute label */
-                'add_new_item' => sprintf(__('Add new %s', 'skwirrel-pim-wp-sync'), $label),
+                'add_new_item' => sprintf(__('Add new %s', 'skwirrel-pim-sync'), $label),
                 /* translators: %s = attribute label */
-                'new_item_name' => sprintf(__('New %s', 'skwirrel-pim-wp-sync'), $label),
+                'new_item_name' => sprintf(__('New %s', 'skwirrel-pim-sync'), $label),
             ],
             'show_ui' => true,
             'show_in_quick_edit' => false,

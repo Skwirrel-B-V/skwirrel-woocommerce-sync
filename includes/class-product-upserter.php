@@ -647,7 +647,7 @@ class Skwirrel_WC_Sync_Product_Upserter {
         $name = (string) ($group['grouped_product_name'] ?? $group['grouped_product_code'] ?? $group['name'] ?? '');
         if ($name === '') {
             /* translators: %s = grouped product ID */
-            $name = sprintf(__('Product %s', 'skwirrel-pim-wp-sync'), $grouped_id);
+            $name = sprintf(__('Product %s', 'skwirrel-pim-sync'), $grouped_id);
         }
 
         $group_sku = (string) ($group['grouped_product_code'] ?? $group['internal_product_code'] ?? '');

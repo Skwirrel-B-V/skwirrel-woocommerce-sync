@@ -110,13 +110,13 @@ class Skwirrel_WC_Sync_Delete_Protection {
         <div class="notice notice-warning is-dismissible skwirrel-sync-delete-warning">
             <p>
                 <strong>Skwirrel Sync:</strong>
-                <?php esc_html_e('This product is managed by Skwirrel. Changes to product data should be made in Skwirrel.', 'skwirrel-pim-wp-sync'); ?>
+                <?php esc_html_e('This product is managed by Skwirrel. Changes to product data should be made in Skwirrel.', 'skwirrel-pim-sync'); ?>
             </p>
             <p>
-                <?php esc_html_e('If you delete or trash this product, it will be automatically recreated during the next sync.', 'skwirrel-pim-wp-sync'); ?>
+                <?php esc_html_e('If you delete or trash this product, it will be automatically recreated during the next sync.', 'skwirrel-pim-sync'); ?>
                 <?php if ($synced_str) : ?>
                     <?php /* translators: %s = last sync datetime */ ?>
-                    <br><small><?php echo esc_html(sprintf(__('Last synced: %s', 'skwirrel-pim-wp-sync'), $synced_str)); ?></small>
+                    <br><small><?php echo esc_html(sprintf(__('Last synced: %s', 'skwirrel-pim-sync'), $synced_str)); ?></small>
                 <?php endif; ?>
             </p>
         </div>
@@ -186,7 +186,7 @@ class Skwirrel_WC_Sync_Delete_Protection {
             return;
         }
 
-        $msg = __('This product is managed by Skwirrel and will be recreated during the next sync.\n\nAre you sure you want to trash this product?', 'skwirrel-pim-wp-sync');
+        $msg = __('This product is managed by Skwirrel and will be recreated during the next sync.\n\nAre you sure you want to trash this product?', 'skwirrel-pim-sync');
         ?>
         <script>
         (function() {
@@ -217,7 +217,7 @@ class Skwirrel_WC_Sync_Delete_Protection {
             return;
         }
 
-        $msg = __('This category was created by Skwirrel Sync and will be recreated during the next sync.\n\nAre you sure you want to delete this category?', 'skwirrel-pim-wp-sync');
+        $msg = __('This category was created by Skwirrel Sync and will be recreated during the next sync.\n\nAre you sure you want to delete this category?', 'skwirrel-pim-sync');
         ?>
         <script>
         (function() {
