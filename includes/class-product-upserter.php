@@ -536,6 +536,8 @@ class Skwirrel_WC_Sync_Product_Upserter {
             'limit' => $batch_size,
             'include_products' => true,
             'include_etim_features' => true,
+            'include_etim_translations' => true,
+            'include_languages' => $this->get_include_languages(),
         ];
 
         // Pass collection_ids filter to grouped products API call
