@@ -2,6 +2,11 @@
 
 All notable changes to Skwirrel PIM Sync will be documented in this file.
 
+## [1.8.1]
+
+* Fix variation attribute labels showing raw ETIM codes (e.g. "EF002671") instead of human-readable names
+* Add missing `include_etim_translations` and `include_languages` to `getGroupedProducts` API call
+
 ## [1.8.0]
 
 * Rename plugin slug from `skwirrel-pim-wp-sync` to `skwirrel-pim-sync` (WordPress.org restricts "wp" in plugin slugs)

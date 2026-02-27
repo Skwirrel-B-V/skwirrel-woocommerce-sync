@@ -4,7 +4,7 @@ Tags: woocommerce, sync, erp, pim, skwirrel
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.8.0
+Stable tag: 1.8.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -52,6 +52,10 @@ You can set an automatic schedule (hourly, twice daily, or daily) or synchronise
 The plugin uses the Skwirrel external ID as a unique key. Existing products are updated, not duplicated.
 
 == Changelog ==
+
+= 1.8.1 =
+* Fix variation attribute labels showing raw ETIM codes (e.g. "EF002671") instead of human-readable names
+* Add missing `include_etim_translations` and `include_languages` to `getGroupedProducts` API call
 
 = 1.8.0 =
 * Rename plugin slug from `skwirrel-pim-wp-sync` to `skwirrel-pim-sync` (WordPress.org restricts "wp" in plugin slugs)
